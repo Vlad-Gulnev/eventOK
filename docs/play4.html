@@ -73,14 +73,7 @@
     .ticket{background:#fff;border:2px solid var(--primary);border-radius:var(--radius);padding:20px;margin:20px 0}
     .ticket .big{font-size:32px;font-weight:800;color:var(--primary-dark)}
     .hidden{display:none !important}
-    @media (max-width:640px){
-      .game-nav{padding:10px 12px}
-      .game-nav .stat{font-size:14px}
-      .modal-sheet{padding:16px}
-      .sortable-item{padding:10px 12px}
-      .sortable-item img{width:36px;height:36px}
-      .intro-hero h1{font-size:22px}
-    }
+    @media (max-width:640px){.game-nav{padding:10px 12px}.game-nav .stat{font-size:14px}.modal-sheet{padding:16px}.sortable-item{padding:10px 12px}.sortable-item img{width:36px;height:36px}.intro-hero h1{font-size:22px}}
   </style>
 </head>
 <body>
@@ -104,10 +97,10 @@
     <div class="card">
       <h2>Правила</h2>
       <ul class="rules">
-        <li>🔎 На картинке спрятан <b>бесхозный предмет</b> или <b>подозрительный объект</b>. Найди его — тапни по нему.</li>
+        <li>🔎 На картинке спрятан <b>опасный объект</b> или <b>признак угрозы</b>. Найди его — тапни по нему.</li>
         <li>🧩 Когда найдёшь — собери <b>правильный порядок действий</b> из плиток.</li>
         <li>⏱ На уровень даётся <b>60 секунд</b>. Если уложишься — бонус.</li>
-        <li>🎯 Всего 6 уровней. Чем меньше промахов, тем выше медаль.</li>
+        <li>🎯 Всего 8 уровней. Чем меньше промахов, тем выше медаль.</li>
       </ul>
       <p style="margin-top:16px;"><b>Главное правило:</b> <span style="color:var(--primary-dark);font-weight:700;">не трогать, не открывать, сообщить</span>.</p>
       <div style="margin-top:20px;"><button class="btn btn-primary" onclick="startGame()" style="font-size:18px;padding:14px 32px;">▶ Начать игру</button></div>
@@ -116,7 +109,7 @@
 
   <section id="gameScreen" class="hidden">
     <div class="game-nav">
-      <div class="stat"><span id="levelIndicator">Уровень 1 / 6</span></div>
+      <div class="stat"><span id="levelIndicator">Уровень 1 / 8</span></div>
       <div class="stat"><span id="scoreIndicator">0</span><small>очков</small></div>
       <div class="stat"><span id="timerDisplay">60:00</span></div>
       <button class="copy-btn" onclick="toggleSound()" id="soundBtn" title="Звук">🔊</button>
@@ -190,26 +183,105 @@ fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
   .then(function(r) { return r.ok ? r.json() : null; })
   .then(function(t) { if (t) teamName = t.name; document.getElementById('who').textContent = teamName; });
 
-var LEVELS = [
-  { id:'find-1', title:'Уровень 1. Холл университета', img:'img/find-1.jpg', hotspots:[{x:39.4,y:85.9}], algorithm:['stop','leave','warn','call'] },
-  { id:'find-2', title:'Уровень 2. Аудитория', img:'img/find-2.jpg', hotspots:[{x:49.2,y:67.1},{x:48.5,y:86.1}], algorithm:['stop','leave','warn','call','safe'] },
-  { id:'find-3', title:'Уровень 3. Кофейня', img:'img/find-3.png', hotspots:[{x:48.6,y:84.9},{x:60.1,y:89.9}], algorithm:['leave','stop','warn','safe','call'] },
-  { id:'find-4', title:'Уровень 4. Вход в вуз', img:'img/find-4.jpg', hotspots:[{x:70.7,y:87.5},{x:80.9,y:55.4}], algorithm:['leave','warn','safe','call'] },
-  { id:'find-5', title:'Уровень 5. Вокзал', img:'img/find-5.jpg', hotspots:[{x:75.6,y:89.9}], algorithm:['stop','leave','warn','call'] },
-  { id:'find-6', title:'Уровень 6. Кабинет права', img:'img/find-6.png', hotspots:[{x:61.1,y:64.3},{x:73.5,y:49}], algorithm:['stop','leave','warn','safe','call'] }
-];
-
-var TILES = {
-  stop:  { text:'Не трогать, не подходить', icon:'img/icon-stop.png' },
-  leave: { text:'Отойти на безопасное расстояние', icon:'img/icon-leave.png' },
-  warn:  { text:'Сообщить охране / администрации', icon:'img/icon-warn.png' },
-  call:  { text:'Позвонить в полицию (112)', icon:'img/icon-call.png' },
-  safe:  { text:'Сохранять спокойствие, не создавать панику', icon:'img/icon-safe.png' }
+var TILE_ICONS = {
+  stop:  'img/icon-stop.png',
+  leave: 'img/icon-leave.png',
+  warn:  'img/icon-warn.png',
+  call:  'img/icon-call.png',
+  safe:  'img/icon-safe.png',
+  screenshot: 'img/icon-photo.png'
 };
+
+// ===== 8 УРОВНЕЙ — 7 = журнал, 8 = опасный пост =====
+var LEVELS = [
+  {
+    id:'find-1', title:'Уровень 1. Холл университета', img:'img/find-1.jpg',
+    hotspots:[{x:39.4,y:85.9}],
+    algorithm:[
+      { key:'stop',  text:'Не трогать и не подходить к предмету' },
+      { key:'leave', text:'Отойти на безопасное расстояние' },
+      { key:'warn',  text:'Сообщить охране или администрации' },
+      { key:'call',  text:'При необходимости — позвонить в 112' }
+    ]
+  },
+  {
+    id:'find-2', title:'Уровень 2. Аудитория', img:'img/find-2.jpg',
+    hotspots:[{x:49.2,y:67.1},{x:48.5,y:86.1}],
+    algorithm:[
+      { key:'stop',  text:'Не открывать коробку и не трогать тележку' },
+      { key:'leave', text:'Вывести людей из аудитории' },
+      { key:'warn',  text:'Сообщить преподавателю и охране' },
+      { key:'safe',  text:'Сохранять спокойствие, не паниковать' },
+      { key:'call',  text:'Позвонить в 112' }
+    ]
+  },
+  {
+    id:'find-3', title:'Уровень 3. Кофейня', img:'img/find-3.png',
+    hotspots:[{x:48.6,y:84.9},{x:60.1,y:89.9}],
+    algorithm:[
+      { key:'stop',  text:'Не брать чужой рюкзак и телефон' },
+      { key:'safe',  text:'Не паниковать, но быть внимательным' },
+      { key:'warn',  text:'Сказать администратору кофейни' },
+      { key:'leave', text:'Отойти от столика' },
+      { key:'call',  text:'При угрозе — позвонить в 112' }
+    ]
+  },
+  {
+    id:'find-4', title:'Уровень 4. Вход в вуз', img:'img/find-4.jpg',
+    hotspots:[{x:70.7,y:87.5},{x:80.9,y:55.4}],
+    algorithm:[
+      { key:'stop',  text:'Не подходить к человеку и его пакету' },
+      { key:'leave', text:'Отойти в безопасное место' },
+      { key:'warn',  text:'Сообщить охране на входе' },
+      { key:'call',  text:'Позвонить в 112' }
+    ]
+  },
+  {
+    id:'find-5', title:'Уровень 5. Вокзал', img:'img/find-5.jpg',
+    hotspots:[{x:75.6,y:89.9}],
+    algorithm:[
+      { key:'stop',  text:'Не трогать бесхозный рюкзак' },
+      { key:'leave', text:'Отойти и предупредить рядом стоящих' },
+      { key:'warn',  text:'Сообщить дежурному по вокзалу' },
+      { key:'call',  text:'Позвонить в 112' }
+    ]
+  },
+  {
+    id:'find-6', title:'Уровень 6. Кабинет права', img:'img/find-6.png',
+    hotspots:[{x:61.1,y:64.3},{x:73.5,y:49}],
+    algorithm:[
+      { key:'stop',  text:'Не трогать коробку и телефон' },
+      { key:'leave', text:'Отойти от стола' },
+      { key:'warn',  text:'Сообщить в деканат или охране' },
+      { key:'safe',  text:'Действовать спокойно, без паники' },
+      { key:'call',  text:'Позвонить в 112' }
+    ]
+  },
+  {
+    id:'find-8', title:'Уровень 7. Журнал про оружие', img:'img/find-7.png',
+    hotspots:[{x:57.6,y:68.7}],
+    algorithm:[
+      { key:'safe',  text:'Не паниковать, не обвинять человека' },
+      { key:'stop',  text:'Не устраивать публичную сцену' },
+      { key:'warn',  text:'Поговорить с одногруппником и выяснить, всё ли в порядке' },
+      { key:'call',  text:'Рассказать куратору, психологу или в полицию' }
+    ]
+  },
+  {
+    id:'find-7', title:'Уровень 8. Опасный пост в соцсети', img:'img/find-8.png',
+    hotspots:[{x:55,y:50.1}],
+    algorithm:[
+      { key:'safe',  text:'Сохранять спокойствие, не паниковать' },
+      { key:'stop',  text:'Не пересылать пост и не вступать в диалог' },
+      { key:'warn',  text:'Пожаловаться администрации соцсети' },
+      { key:'screenshot', text:'Сделать скриншот поста и профиля автора' },
+      { key:'call',  text:'Сообщить старшим или в полицию' }
+    ]
+  }
+];
 
 var state = { levelIdx:0, score:0, totalFound:0, algorithmsCorrect:0, totalMisses:0, startTime:0, soundOn:true };
 
-// Звук
 var audioCtx = null;
 function initAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){} } }
 function playTone(f, d, t, v) {
@@ -252,7 +324,7 @@ function loadLevel(idx) {
 
   var wrap = document.getElementById('sceneWrap');
   wrap.querySelectorAll('.hotspot, .tap-ripple, .tap-miss').forEach(function(el) { el.remove(); });
-  lvl.hotspots.forEach(function(h, i) {
+  lvl.hotspots.forEach(function(h) {
     var el = document.createElement('div');
     el.className = 'hotspot';
     el.style.left = h.x + '%';
@@ -323,19 +395,33 @@ function handleMiss(e) {
 }
 
 var sortableInstance = null;
+
+function shuffleArr(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
 function openAlgorithmModal() {
   var lvl = LEVELS[state.levelIdx];
-  var shuffled = lvl.algorithm.slice().sort(function() { return Math.random() - 0.5; });
+  var shuffled = shuffleArr(lvl.algorithm);
+
   var list = document.getElementById('sortableList');
   list.innerHTML = '';
-  shuffled.forEach(function(key) {
-    var tile = TILES[key];
+  shuffled.forEach(function(tile) {
     var li = document.createElement('li');
     li.className = 'sortable-item';
-    li.dataset.key = key;
-    li.innerHTML = '<span class="sortable-handle">☰</span><img src="' + tile.icon + '" alt=""><span class="text">' + tile.text + '</span><span class="check">✓</span>';
+    li.dataset.key = tile.key;
+    li.innerHTML = '<span class="sortable-handle">☰</span>' +
+      '<img src="' + (TILE_ICONS[tile.key] || TILE_ICONS.safe) + '" alt="">' +
+      '<span class="text">' + tile.text + '</span>' +
+      '<span class="check">✓</span>';
     list.appendChild(li);
   });
+
   if (sortableInstance) sortableInstance.destroy();
   sortableInstance = new Sortable(list, {
     animation: 200, handle: '.sortable-handle', ghostClass: 'dragging',
@@ -352,7 +438,7 @@ function checkLockedItems() {
   var items = Array.from(document.querySelectorAll('#sortableList .sortable-item'));
   var allLocked = true;
   items.forEach(function(item, i) {
-    var expected = lvl.algorithm[i];
+    var expected = lvl.algorithm[i].key;
     if (item.dataset.key === expected) {
       item.classList.add('locked');
       item.setAttribute('draggable', 'false');
@@ -415,17 +501,8 @@ function showFinal() {
   document.getElementById('finalTitle').textContent = title;
   document.getElementById('finalSub').textContent = 'Промахов: ' + state.totalMisses;
 
-  var stage1 = {
-    score: state.score,
-    totalFound: state.totalFound,
-    algorithmsCorrect: state.algorithmsCorrect,
-    totalMisses: state.totalMisses,
-    duration: duration
-  };
-  fetch('/api/tour4/stage1', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ teamId: teamId, teamName: teamName, stage1: stage1 })
-  });
+  var stage1 = { score: state.score, totalFound: state.totalFound, algorithmsCorrect: state.algorithmsCorrect, totalMisses: state.totalMisses, duration: duration };
+  fetch('/api/tour4/stage1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId: teamId, teamName: teamName, stage1: stage1 }) });
 }
 
 function goToStage2() {
@@ -434,48 +511,91 @@ function goToStage2() {
   renderSims();
 }
 
+// ===== СИМУЛЯТОР С 4 РАЗВЯЗКАМИ =====
 var SIMULATIONS = [
   { id:'tg', title:'Ситуация 1. Странное сообщение', startScene:'s1', scenes:{
     s1:{ text:'Незнакомый аккаунт в Telegram: «Привет! Есть дело на 30 000 ₽/мес. Несложно. Никому не говори. Ответь до вечера».', choices:[
-      { text:'Ответить: «Интересно, расскажи»', next:'end_bad', score:0, feedback:'Вступать в диалог нельзя — это сигнал, что ты готов слушать.' },
+      { text:'Ответить «Интересно, расскажи»', next:'s2_bad', score:0, feedback:'Вступать в диалог нельзя — ты даёшь сигнал, что готов слушать.' },
       { text:'Ничего не отвечать, сделать скриншот', next:'s2_good', score:1, feedback:'Правильно: не вступать в диалог, сразу фиксировать.' },
-      { text:'Удалить сообщение и забыть', next:'end_meh', score:0, feedback:'Удалять нельзя — теряются доказательства.' }
+      { text:'Удалить сообщение и забыть', next:'s2_meh', score:0, feedback:'Удалять нельзя — теряются доказательства.' }
     ]},
     s2_good:{ text:'Скриншот сохранён. Что дальше?', choices:[
-      { text:'Заблокировать и рассказать взрослым', next:'end_good', score:1, feedback:'Правильно.' },
-      { text:'Подождать, может напишет ещё', next:'end_meh', score:0, feedback:'Не жди продолжения. Сохранил — блокируй.' }
+      { text:'Заблокировать и рассказать старшим', next:'s3_good', score:1, feedback:'Отличный шаг — так и надо.' },
+      { text:'Переслать другу: «Смотри, что за дичь»', next:'end_meh', score:0, feedback:'Пересылать опасно. Лучше показать лично.' },
+      { text:'Подождать, может напишет ещё', next:'s3_meh', score:0, feedback:'Не жди продолжения.' }
     ]},
-    end_good:{ text:'Ты действовал правильно.', choices:[], final:true, score:1 },
-    end_meh:{ text:'В целом верно, но можно было решительнее.', choices:[], final:true, score:0 },
-    end_bad:{ text:'Ситуация зашла слишком далеко — так делать нельзя.', choices:[], final:true, score:0 }
+    s2_bad:{ text:'Незнакомец: «Отлично! Скинь фото паспорта и номер карты — оформим договор».', choices:[
+      { text:'Скинуть — вроде нормальные ребята', next:'end_very_bad', score:0, feedback:'Ты передал личные данные. Срочно расскажи родителям и в банк.' },
+      { text:'Прекратить общение, сохранить всё, рассказать старшим', next:'s3_good', score:1, feedback:'Правильно. Лучше поздно, чем никогда.' }
+    ]},
+    s2_meh:{ text:'Ты удалил. Через день — новое сообщение: «Ты почему молчишь? Я знаю твой адрес».', choices:[
+      { text:'Испугаться и выполнить требования', next:'end_very_bad', score:0, feedback:'Нельзя поддаваться давлению.' },
+      { text:'Сохранить сообщения, заблокировать, рассказать взрослым или в полицию', next:'s3_good', score:1, feedback:'Правильно.' }
+    ]},
+    s3_good:{ text:'Ты сохранил доказательства и рассказал куратору. Куратор: «Готов сообщить в полицию?»', choices:[
+      { text:'Да, это правильно', next:'end_good', score:1, feedback:'Молодец!' },
+      { text:'Нет, мне кажется, это лишнее', next:'end_meh', score:0, feedback:'Лучше сообщить — это защитит и тебя, и других.' }
+    ]},
+    s3_meh:{ text:'Ты подождал. Пришло ещё сообщение с угрозами.', choices:[
+      { text:'Прекратить, сохранить, рассказать старшим или в полицию', next:'end_good', score:1, feedback:'Правильно, но лучше было сразу.' },
+      { text:'Вступить в диалог, чтобы «разобраться»', next:'end_very_bad', score:0, feedback:'Опасно. Не вступай в переписку с агрессором.' }
+    ]},
+    end_good:{ text:'Отличный результат. Ты действовал правильно, ситуация закрыта.', choices:[], final:true, score:1 },
+    end_meh:{ text:'Ты в безопасности, но действовал не идеально. Впредь — рассказывай старшим сразу.', choices:[], final:true, score:0 },
+    end_bad:{ text:'Ситуация зашла далеко. Возможны последствия.', choices:[], final:true, score:0 },
+    end_very_bad:{ text:'Очень плохо. Ты передал данные или втянут. Немедленно расскажи родителям или в полицию.', choices:[], final:true, score:0 }
   }},
   { id:'bag', title:'Ситуация 2. Бесхозная сумка', startScene:'b1', scenes:{
     b1:{ text:'В холле корпуса одинокая сумка у стены, рядом никого.', choices:[
       { text:'Открыть и посмотреть', next:'end_bad', score:0, feedback:'Нельзя открывать бесхозные предметы.' },
       { text:'Отойти, предупредить, сообщить охране', next:'b2_good', score:1, feedback:'Правильно — стандартный алгоритм.' },
-      { text:'Снять на видео и выложить', next:'end_meh', score:0, feedback:'Лишнее. Главное — безопасность.' }
+      { text:'Снять на видео и выложить', next:'b2_meh', score:0, feedback:'Лишнее. Главное — безопасность.' }
     ]},
-    b2_good:{ text:'Охрана просит остаться до приезда полиции. Твои действия?', choices:[
-      { text:'Остаться и ответить на вопросы', next:'end_good', score:1, feedback:'Правильно. Ты свидетель — информация важна.' },
-      { text:'Уйти на пару, я же не виноват', next:'end_meh', score:0, feedback:'Не стоит уходить без разрешения.' }
+    b2_good:{ text:'Охрана просит остаться до приезда полиции.', choices:[
+      { text:'Остаться и ответить на вопросы', next:'b3_good', score:1, feedback:'Правильно. Ты свидетель — информация важна.' },
+      { text:'Уйти на пару — я же не виноват', next:'end_meh', score:0, feedback:'Не стоит уходить без разрешения.' },
+      { text:'Позвонить родителям: пусть знают', next:'b3_good', score:1, feedback:'Хорошо — родители должны знать, где ты.' }
     ]},
-    end_good:{ text:'Ты действовал по алгоритму.', choices:[], final:true, score:1 },
+    b2_meh:{ text:'Ты снял видео. Охранник увидел и просит удалить — может создать панику.', choices:[
+      { text:'Удалить и извиниться', next:'end_meh', score:0, feedback:'Правильно, но лучше было не снимать.' },
+      { text:'Оставить «на память»', next:'end_bad', score:0, feedback:'Нельзя. Это может помешать.' }
+    ]},
+    b3_good:{ text:'Полиция спрашивает, что ты видел. Как отвечать?', choices:[
+      { text:'Спокойно рассказать всё, что помню', next:'end_good', score:1, feedback:'Отлично. Это помогает следствию.' },
+      { text:'Придумать, чтобы не впутываться', next:'end_very_bad', score:0, feedback:'Ложь всё испортит.' }
+    ]},
+    end_good:{ text:'Ты действовал по алгоритму. Ситуация разрешилась без происшествий.', choices:[], final:true, score:1 },
     end_meh:{ text:'Справился, но были ошибки.', choices:[], final:true, score:0 },
-    end_bad:{ text:'Ситуация закончилась плохо.', choices:[], final:true, score:0 }
+    end_bad:{ text:'Ситуация закончилась плохо.', choices:[], final:true, score:0 },
+    end_very_bad:{ text:'Ты соврал или навредил. Это может обернуться против тебя.', choices:[], final:true, score:0 }
   }},
   { id:'friend', title:'Ситуация 3. Друг втягивается', startScene:'f1', scenes:{
-    f1:{ text:'Друг говорит: «Нашёл подработку — за 5000 ₽ надо просто отвезти коробку. Просили никому не говорить».', choices:[
-      { text:'Поздравить друга', next:'end_bad', score:0, feedback:'Это опасная схема.' },
-      { text:'Спросить, что внутри и почему нельзя говорить', next:'f2_good', score:1, feedback:'Правильно. Эти вопросы — красные флаги.' },
-      { text:'Промолчать, чтобы не портить отношения', next:'end_meh', score:0, feedback:'Молчание = соучастие.' }
+    f1:{ text:'Друг: «Нашёл подработку — 5000 ₽ надо просто отвезти коробку. Просили никому не говорить».', choices:[
+      { text:'Поздравить друга', next:'end_bad', score:0, feedback:'Это опасная схема. Нельзя относиться к ней как к обычной работе.' },
+      { text:'Спросить, что внутри и почему нельзя говорить', next:'f2_good', score:1, feedback:'Правильно. Эти два вопроса — красные флаги.' },
+      { text:'Промолчать, чтобы не портить отношения', next:'f2_meh', score:0, feedback:'Молчание = соучастие.' }
     ]},
     f2_good:{ text:'Друг: «Да не знаю, какая разница. Просто коробка». Что дальше?', choices:[
-      { text:'Скажу, что это опасно, и попрошу отказаться', next:'end_good', score:1, feedback:'Правильно.' },
-      { text:'Соглашусь, что, наверное, ничего страшного', next:'end_bad', score:0, feedback:'Нет. Это схема вовлечения.' }
+      { text:'Скажу, что это опасно, и попрошу отказаться', next:'f3_good', score:1, feedback:'Правильно.' },
+      { text:'Соглашусь, что ничего страшного', next:'end_bad', score:0, feedback:'Нет. Это схема вовлечения.' },
+      { text:'Позвоню его родителям', next:'f3_warn', score:0, feedback:'Без согласия друга — риск потерять доверие. Лучше сначала поговорить с ним.' }
     ]},
-    end_good:{ text:'Ты помог другу избежать беды.', choices:[], final:true, score:1 },
+    f2_meh:{ text:'Через неделю друг говорит: «Кажется, я вляпался. Мне угрожают».', choices:[
+      { text:'Сказать ему идти в полицию и рассказать родителям', next:'end_good', score:1, feedback:'Правильно — хотя лучше было раньше.' },
+      { text:'Посоветовать «не высовываться»', next:'end_very_bad', score:0, feedback:'Нет. Это опасно для друга.' }
+    ]},
+    f3_good:{ text:'Друг согласился отказаться. Что дальше?', choices:[
+      { text:'Вместе рассказать куратору или родителям', next:'end_good', score:1, feedback:'Отлично — взрослые помогут разобраться.' },
+      { text:'Оставить как есть — он же согласился', next:'end_meh', score:0, feedback:'Лучше закрепить результат.' }
+    ]},
+    f3_warn:{ text:'Друг обиделся, что ты звонишь родителям без спроса. Что делать?', choices:[
+      { text:'Извиниться и предложить вместе поговорить со взрослыми', next:'end_meh', score:0, feedback:'Правильно — важно сохранить доверие.' },
+      { text:'Настоять на своём — так надёжнее', next:'end_meh', score:0, feedback:'Правильно по сути, но друг может закрыться.' }
+    ]},
+    end_good:{ text:'Ты помог другу избежать беды. Отличный результат.', choices:[], final:true, score:1 },
     end_meh:{ text:'В целом верно, но можно было решительнее.', choices:[], final:true, score:0 },
-    end_bad:{ text:'Ситуация закончилась плохо для друга.', choices:[], final:true, score:0 }
+    end_bad:{ text:'Ситуация закончилась плохо для друга.', choices:[], final:true, score:0 },
+    end_very_bad:{ text:'Друг в опасности. Нужна помощь взрослых немедленно.', choices:[], final:true, score:0 }
   }}
 ];
 
@@ -566,6 +686,7 @@ function submitStage2() {
 }
 </script>
 
-<script src="timer-widget.js"></script>`n<script src="duel-widget.js"></script>
+<script src="timer-widget.js"></script>
+<script src="duel-widget.js"></script>
 </body>
 </html>
