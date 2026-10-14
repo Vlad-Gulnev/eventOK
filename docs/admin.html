@@ -501,8 +501,8 @@ function showTour4(){
   var s1 = t.t4.stage1 || {};
   var s2 = t.t4.stage2 || {};
   var html = '<div class="tour4-block"><h4>' + t.emoji + ' ' + t.name + speedBadge(t.t4.bonus) + qualityBadge(t.t4.quality.total) + '</h4>' +
-    '<div class="stat-line"><span>Найдено объектов</span><b>'+(s1.totalFound||0)+' / 10</b>'+(t.t4.quality.objects ? ' <span class="badge-quality">🌟 +'+t.t4.quality.objects+'</span>' : '')+'</div>' +
-    '<div class="stat-line"><span>Алгоритмов верно</span><b>'+(s1.algorithmsCorrect||0)+' / 6</b>'+(t.t4.quality.algos ? ' <span class="badge-quality">🌟 +'+t.t4.quality.algos+'</span>' : '')+'</div>' +
+    '<div class="stat-line"><span>Найдено объектов</span><b>'+(s1.totalFound||0)+' / 12</b>'+(t.t4.quality.objects ? ' <span class="badge-quality">🌟 +'+t.t4.quality.objects+'</span>' : '')+'</div>' +
+    '<div class="stat-line"><span>Алгоритмов верно</span><b>'+(s1.algorithmsCorrect||0)+' / 8</b>'+(t.t4.quality.algos ? ' <span class="badge-quality">🌟 +'+t.t4.quality.algos+'</span>' : '')+'</div>' +
     '<div class="stat-line"><span>Промахов</span><b>'+(s1.totalMisses||0)+'</b>'+(t.t4.quality.misses ? ' <span class="badge-quality">🌟 +'+t.t4.quality.misses+'</span>' : '')+'</div>' +
     '<div class="stat-line"><span>Время игры</span><b>'+formatTime(s1.duration||0)+'</b></div>' +
     '<div class="stat-line"><span><b>Этап 1. Очки</b></span><b>'+(s1.score||0)+'</b></div></div>';
@@ -512,7 +512,7 @@ function showTour4(){
     html += '<div class="stat-line"><span>'+(SIM_TITLES[key]||key)+'</span><b>'+((s2[key]&&s2[key].score)||0)+' прав.</b></div>';
   });
   html += '<div class="stat-line" style="border-top:2px solid var(--primary);margin-top:8px;padding-top:10px;"><span><b>Этап 2. Очки</b></span><b>'+(t.t4.stage2Score||0)+'</b></div></div>';
-  html += '<div class="tour4-block" style="background:#e6f4ea;"><div class="stat-line" style="font-size:18px;"><span><b>Итого за Тур 4</b></span><b>'+t.t4Total+' / 58</b></div></div>';
+  html += '<div class="tour4-block" style="background:#e6f4ea;"><div class="stat-line" style="font-size:18px;"><span><b>Итого за Тур 4</b></span><b>'+t.t4Total+' / 56</b></div></div>';
   box.innerHTML = html;
 }
 
