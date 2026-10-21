@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Видео-этап — Проектор</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height: 100%; font-family: 'Segoe UI', Arial, sans-serif; background: #0a1628; color: #fff; overflow: hidden; }
+  .header { padding: 16px 24px; text-align: center; border-bottom: 2px solid rgba(255,255,255,0.08); }
+  .header h1 { font-size: 24px; font-weight: 800; letter-spacing: 1px; color: #7cc5f0; }
+  .stage { display: flex; align-items: center; justify-content: center; height: calc(100vh - 80px); padding: 20px; }
+  
+  video { 
+    max-width: 100%; 
+    max-height: 100%; 
+    border-radius: 12px; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
+    background: #000;
+  }
+  
+  .status-big { text-align: center; font-size: 32px; color: rgba(255,255,255,0.6); }
+  .status-big .emoji { font-size: 80px; display: block; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎬 Финальный видео-этап</h1>
+</div>
+
+<div id="stage-content" class="stage">
+  <div class="status-big">
+    <span class="emoji">⏳</span>
+    Ожидание запуска видео
+  </div>
+</div>
+
+<script>
+var currentPhase = null;
+
+function renderVideo(filename) {
+  var stage = document.getElementById('stage-content');
+  // ЖЕСТКАЯ АБСОЛЮТНАЯ ССЫЛКА С ПОРТОМ 80
+  var src = 'http://2.153.248.134/video/' + filename;
+  
+  stage.innerHTML = '<video id="mainVideo" src="' + src + '" autoplay muted playsinline controls></video>';
+  currentPhase = filename;
+}
+
+function renderWaiting() {
+  var stage = document.getElementById('stage-content');
+  stage.className = 'stage';
+  stage.innerHTML = '<div class="status-big"><span class="emoji">⏳</span> Ожидание запуска видео</div>';
+  currentPhase = null;
+}
+
+function poll() {
+  fetch('/api/video/active')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.active) { 
+        if (currentPhase !== null) renderWaiting(); 
+        return; 
+      }
+
+      if (data.phase === 'video1' && currentPhase !== 'video1') {
+        renderVideo('EZ1_fast.mp4'); // Используем оптимизированные файлы
+      } else if (data.phase === 'video2' && currentPhase !== 'video2') {
+        renderVideo('EZ2_fast.mp4');
+      } else if (data.phase === 'questions') {
+        if (currentPhase !== 'questions') {
+          currentPhase = 'questions';
+          document.getElementById('stage-content').innerHTML = '<div class="status-big"><span class="emoji">📝</span> Команды отвечают на вопросы...</div>';
+        }
+      } else if (data.phase === 'finished') {
+        if (currentPhase !== 'finished') {
+          currentPhase = 'finished';
+          document.getElementById('stage-content').innerHTML = '<div class="status-big"><span class="emoji">🏆</span> Сбор ответов завершен</div>';
+        }
+      }
+    })
+    .catch(function() {});
+}
+
+poll();
+setInterval(poll, 1000);
+</script>
+
+</body>
+</html>

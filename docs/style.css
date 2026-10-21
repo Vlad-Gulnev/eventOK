@@ -1,0 +1,239 @@
+/* ============================================================
+   Координационный центр — общий стиль
+   Цвета вдохновлены сайтом ЯрГУ (#157fc4)
+   Шрифт: Open Sans
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap');
+
+:root {
+  --primary:      #157fc4;
+  --primary-dark: #0f5d92;
+  --primary-soft: #e6f2fa;
+  --accent:       #c8102e;
+  --bg:           #f5f7fa;
+  --card:         #ffffff;
+  --text:         #1a1a1a;
+  --muted:        #5a6470;
+  --border:       #d9dde3;
+  --ok:           #2e7d32;
+  --err:          #c62828;
+  --radius:       10px;
+  --shadow:       0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3 { color: var(--primary-dark); margin: 0 0 12px; line-height: 1.25; }
+h1 { font-size: 26px; font-weight: 700; }
+h2 { font-size: 20px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 600; }
+
+p { margin: 0 0 12px; }
+
+/* ---------- Шапка ---------- */
+.site-header {
+  background: var(--primary);
+  color: #fff;
+  padding: 20px 24px;
+}
+.site-header .wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.site-header .brand {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+  margin-bottom: 4px;
+}
+.site-header h1 {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 900px;
+}
+
+/* ---------- Основной контейнер ---------- */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px 60px;
+}
+.container.wide { max-width: 1100px; }
+
+/* ---------- Карточки ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+
+/* ---------- Кнопки ---------- */
+.btn {
+  display: inline-block;
+  padding: 12px 22px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.05s;
+}
+.btn-primary   { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); text-decoration: none; }
+.btn-secondary { background: #eef1f5; color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: #e2e7ee; text-decoration: none; }
+.btn-danger    { background: #fdecec; color: var(--err); border: 1px solid #f4c5c5; }
+.btn-danger:hover { background: #fbdcdc; text-decoration: none; }
+.btn:active    { transform: translateY(1px); }
+
+/* ---------- Формы ---------- */
+input[type="text"], input[type="email"], select, textarea {
+  width: 100%;
+  padding: 11px 14px;
+  font-family: inherit;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+
+/* ---------- Таблица ---------- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  margin-top: 12px;
+}
+.table th, .table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+}
+.table th {
+  background: #eef2f6;
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.table tr:last-child td { border-bottom: none; }
+.table tr.leader { background: #eaf7ef; font-weight: 600; }
+
+/* ---------- Бейджи ---------- */
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+.badge.ok  { background: #e6f4ea; color: var(--ok); }
+.badge.err { background: #fdecec; color: var(--err); }
+
+/* ---------- Сообщения ---------- */
+.msg { padding: 10px 14px; border-radius: var(--radius); margin: 10px 0; font-size: 15px; }
+.msg.ok  { background: #e6f4ea; color: var(--ok); }
+.msg.err { background: #fdecec; color: var(--err); }
+
+/* ---------- Вопросы теста ---------- */
+.question {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.question b { display: block; margin-bottom: 12px; font-size: 16px; }
+.opt {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  margin: 4px 0;
+  transition: background 0.1s, border-color 0.1s;
+}
+.opt:hover { background: var(--primary-soft); }
+.opt input { margin-right: 10px; }
+
+/* ---------- Прогресс-бар ---------- */
+.progress {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 6px;
+  background: #dfe6ec;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.progress-bar {
+  height: 100%;
+  background: var(--primary);
+  width: 0;
+  transition: width 0.25s ease;
+}
+
+/* ---------- Подвал ---------- */
+.site-footer {
+  background: #eef2f6;
+  color: var(--muted);
+  padding: 20px 24px;
+  text-align: center;
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- Адаптив ---------- */
+@media (max-width: 640px) {
+  body { font-size: 15px; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 18px; }
+  .container { padding: 20px 16px 50px; }
+  .card, .question { padding: 16px; }
+  .site-header { padding: 16px; }
+  .site-header h1 { font-size: 15px; }
+  .btn { width: 100%; text-align: center; }
+  .table th, .table td { padding: 9px 10px; font-size: 14px; }
+  .table th:nth-child(3), .table td:nth-child(3) { display: none; } /* токен прячем на мобиле */
+}

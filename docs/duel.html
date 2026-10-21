@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Дуэль — Кейс-чемпионат</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.duel-status{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;box-shadow:var(--shadow);text-align:center}
+.duel-status h2{margin:0 0 6px;color:var(--primary-dark)}
+.duel-status .sub{color:var(--muted);font-size:14px}
+.timer-big{font-size:52px;font-weight:900;color:var(--primary-dark);font-variant-numeric:tabular-nums;line-height:1.1;margin:10px 0}
+.timer-big.warning{color:#c62828;animation:blink 0.8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+
+.gallery{display:flex;gap:10px;overflow-x:auto;padding:8px 0 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.gallery img{flex-shrink:0;height:280px;border-radius:10px;box-shadow:var(--shadow);scroll-snap-align:start;cursor:zoom-in}
+.q-text{font-weight:700;font-size:17px;margin:12px 0}
+.opt{display:block;padding:12px 14px;margin:6px 0;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:background 0.12s,border-color 0.12s;font-size:15px}
+.opt:hover{background:var(--primary-soft)}
+.opt.checked{background:var(--primary-soft);border-color:var(--primary)}
+.opt input{margin-right:10px}
+.submit-btn{width:100%;padding:16px;font-size:17px;font-weight:700;background:var(--primary);color:#fff;border:none;border-radius:10px;cursor:pointer;font-family:inherit;margin-top:16px}
+.submit-btn:hover:not(:disabled){background:var(--primary-dark)}
+.submit-btn:disabled{opacity:0.5;cursor:not-allowed}
+
+.result-card{background:#fff;border:2px solid var(--primary);border-radius:var(--radius);padding:24px;text-align:center;box-shadow:var(--shadow)}
+.result-card .score-big{font-size:56px;font-weight:900;color:var(--primary-dark);line-height:1;margin:12px 0}
+.result-card.ok{border-color:#2e7d32}
+.result-card.err{border-color:#c62828}
+.result-card .label{font-size:14px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+
+.waiting-box{text-align:center;padding:40px 20px;color:var(--muted)}
+.waiting-box .emoji{font-size:64px;margin-bottom:12px;display:block}
+.waiting-box .spinner{display:inline-block;width:32px;height:32px;border:4px solid #dfe6ec;border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:16px 0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.vs-row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;font-weight:800}
+.vs-row .t{padding:6px 14px;background:#f7f9fc;border-radius:10px;border:2px solid var(--border);font-size:15px}
+.vs-row .t.me{border-color:var(--primary);background:var(--primary-soft)}
+.vs-row .vs{color:#ffd700;font-size:16px;font-weight:900}
+.vs-row .t .emj{font-size:22px;margin-right:6px}
+
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:95vw;max-height:95vh;border-radius:8px}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Дуэль</h1>
+  </div>
+</header>
+
+<main class="container">
+  <p id="who" style="color: var(--muted); font-size: 14px;"></p>
+  <div id="content">Загрузка...</div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')"><img id="lightboxImg" src="" alt=""></div>
+
+<script src="timer-widget.js"></script>
+<script>
+var params = new URLSearchParams(location.search);
+var teamId = params.get('team');
+var token  = params.get('token');
+var team = null;
+var myAnswer = null;
+var submitted = false;
+var lastDuelId = null;
+var pollInterval = null;
+
+function loadTeam(cb) {
+  fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(t) {
+      team = t;
+      if (team) document.getElementById('who').textContent = team.emoji + ' ' + team.name;
+      if (cb) cb();
+    })
+    .catch(function() { if (cb) cb(); });
+}
+
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function renderWaiting() {
+  document.getElementById('content').innerHTML =
+    '<div class="waiting-box">' +
+      '<span class="emoji">⏳</span>' +
+      '<h2>Ожидание дуэли</h2>' +
+      '<p>Ведущий скоро запустит вашу дуэль. Не закрывайте страницу.</p>' +
+      '<div class="spinner"></div>' +
+    '</div>';
+}
+
+function renderQuestion(duel, q, timeLeftSec) {
+  var html = '<div class="duel-status">' +
+    '<h2>Дуэль №' + duel.id + '</h2>' +
+    '<div class="vs-row">' +
+      teamChip(duel.teamA, 'A') +
+      '<span class="vs">VS</span>' +
+      teamChip(duel.teamB, 'B') +
+    '</div>' +
+    '<div class="timer-big' + (timeLeftSec <= 10 ? ' warning' : '') + '" id="timerBig">' + formatTime(timeLeftSec) + '</div>' +
+  '</div>';
+
+  html += '<div class="card">' +
+    '<h2>' + q.title + '</h2>' +
+    '<p class="gallery-hint">Пролистайте карточки →</p>' +
+    '<div class="gallery">';
+  q.images.forEach(function(src) {
+    html += '<img src="' + src + '" alt="" onclick="openLightbox(\'' + src + '\')">';
+  });
+  html += '</div><p class="q-text">' + q.text + '</p>';
+
+  q.options.forEach(function(opt, j) {
+    var inputType = q.multiple ? 'checkbox' : 'radio';
+    var checked = myAnswer && myAnswer.indexOf(j) !== -1;
+    html += '<label class="opt' + (checked ? ' checked' : '') + '">' +
+      '<input type="' + inputType + '" name="answer" value="' + j + '" ' + (checked ? 'checked' : '') + ' onchange="pick(' + j + ', this)"> ' + opt +
+      '</label>';
+  });
+
+  html += '<button class="submit-btn" id="submitBtn" onclick="submitAnswer()">' +
+    (submitted ? '✓ Ответ отправлен' : 'Отправить ответ') + '</button>';
+  html += '</div>';
+
+  document.getElementById('content').innerHTML = html;
+
+  var btn = document.getElementById('submitBtn');
+  if (submitted) btn.disabled = true;
+}
+
+function teamChip(t, label) {
+  var isMe = team && String(team.id) === String(t.id);
+  return '<div class="t' + (isMe ? ' me' : '') + '">' +
+    '<span class="emj">' + (t.emoji || '🛡') + '</span>' + t.name +
+  '</div>';
+}
+
+function formatTime(sec) {
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function pick(val, el) {
+  if (submitted) return;
+  var multiple = el.type === 'checkbox';
+  if (multiple) {
+    if (!myAnswer) myAnswer = [];
+    var idx = myAnswer.indexOf(val);
+    if (idx === -1) myAnswer.push(val);
+    else myAnswer.splice(idx, 1);
+  } else {
+    myAnswer = [val];
+  }
+  document.querySelectorAll('.opt').forEach(function(l) { l.classList.remove('checked'); });
+  document.querySelectorAll('.opt input:checked').forEach(function(inp) {
+    inp.closest('.opt').classList.add('checked');
+  });
+}
+
+function submitAnswer() {
+  if (submitted) return;
+  if (!myAnswer || myAnswer.length === 0) { alert('Выберите ответ'); return; }
+  submitted = true;
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Отправка...';
+
+  fetch('/api/duel/answer', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId: teamId, answer: myAnswer })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.error) {
+        alert('Ошибка: ' + res.error);
+        submitted = false;
+        btn.disabled = false;
+        btn.textContent = 'Отправить ответ';
+      } else {
+        btn.textContent = '✓ Ответ отправлен';
+      }
+    });
+}
+
+function renderFinished(duel) {
+  var myTeamId = String(teamId);
+  var isA = String(duel.teamA.id) === myTeamId;
+  var myScore = duel.result ? (isA ? duel.result.scoreA : duel.result.scoreB) : 0;
+  var oppScore = duel.result ? (isA ? duel.result.scoreB : duel.result.scoreA) : 0;
+  var myCorrect = duel.result ? (isA ? duel.result.correctA : duel.result.correctB) : false;
+  var oppCorrect = duel.result ? (isA ? duel.result.correctB : duel.result.correctA) : false;
+  var myAnswered = duel.result ? (isA ? duel.result.answeredA : duel.result.answeredB) : false;
+
+  var cls = myScore > oppScore ? 'ok' : (myScore < oppScore ? 'err' : '');
+  var emoji = myScore > oppScore ? '🏆' : (myScore < oppScore ? '😔' : '🤝');
+  var title = myScore > oppScore ? 'Победа!' : (myScore < oppScore ? 'Поражение' : 'Ничья');
+
+  var myCorrectHtml = myAnswered ? (myCorrect ? '<p style="color:#2e7d32;font-weight:700;">✓ Ваш ответ — правильный</p>' : '<p style="color:#c62828;font-weight:700;">✗ Ваш ответ — неправильный</p>') : '<p style="color:#c62828;font-weight:700;">Вы не успели ответить</p>';
+
+  document.getElementById('content').innerHTML =
+    '<div class="result-card ' + cls + '">' +
+      '<div class="label">' + emoji + ' ' + title + '</div>' +
+      '<div class="score-big">' + myScore + ' : ' + oppScore + '</div>' +
+      myCorrectHtml +
+      '<p style="color:var(--muted);font-size:14px;margin-top:12px;">Ожидайте следующей дуэли.</p>' +
+    '</div>';
+}
+
+function poll() {
+  fetch('/api/duel/active')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.active && !data.duel) { renderWaiting(); return; }
+      var duel = data.duel;
+
+      var isMyDuel = team && (String(team.id) === String(duel.teamA.id) || String(team.id) === String(duel.teamB.id));
+      if (!isMyDuel) { renderWaiting(); return; }
+
+      if (duel.status === 'finished') {
+        if (lastDuelId !== duel.id) { lastDuelId = duel.id; renderFinished(duel); }
+        else if (!document.querySelector('.result-card')) renderFinished(duel);
+        return;
+      }
+
+      // Новая дуэль — сбрасываем прошлые ответы
+      if (lastDuelId !== duel.id) {
+        lastDuelId = duel.id;
+        myAnswer = null;
+        submitted = false;
+      }
+      // Если уже ответил — блокируем ещё раз
+      if (duel.answers) {
+        var isA = String(duel.teamA.id) === String(teamId);
+        var key = isA ? 'A' : 'B';
+        if (duel.answers[key]) {
+          submitted = true;
+          if (!myAnswer) myAnswer = duel.answers[key].answer;
+        }
+      }
+
+      var q = data.question;
+      if (!q) { renderWaiting(); return; }
+      renderQuestion(duel, q, data.timeLeftSec);
+
+      // Обновить таймер без перерисовки (только цифры)
+      var el = document.getElementById('timerBig');
+      if (el) {
+        el.textContent = formatTime(data.timeLeftSec);
+        el.classList.toggle('warning', data.timeLeftSec <= 10);
+      }
+    })
+    .catch(function() {});
+}
+
+loadTeam(function() {
+  if (!team) {
+    document.getElementById('content').innerHTML = '<div class="waiting-box"><h2>Команда не найдена</h2><p>Откройте страницу по ссылке с QR-кода.</p></div>';
+    return;
+  }
+  poll();
+  pollInterval = setInterval(poll, 1500);
+});
+</script>
+
+</body>
+</html>

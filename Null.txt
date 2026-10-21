@@ -1,0 +1,12 @@
+0|event-ap | Сервер: http://localhost:3000
+0|event-ap | Проверка API: http://localhost:3000/api/teams
+0|event-ap | Сервер: http://localhost:3000
+0|event-ap | Проверка API: http://localhost:3000/api/teams
+0|event-ap | Debug-страница: http://localhost:3000/debug.html
+0|event-ap | Сервер: http://localhost:3000
+0|event-ap | API: http://localhost:3000/api/teams
+0|event-ap | Сервер: http://localhost:3000
+0|event-ap | API: http://localhost:3000/api/teams
+0|event-ap | Сервер: http://localhost:3000
+0|event-ap | API: http://localhost:3000/api/teams
+0|event-ap | Leaderboard: http://localhost:3000/leaderboard.html

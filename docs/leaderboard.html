@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Турнирная таблица — Кейс-чемпионат</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+    background: linear-gradient(135deg, #0a1628 0%, #0f2942 100%);
+    color: #fff;
+    overflow: hidden;
+  }
+
+  /* ТАЙМЕР */
+  .timer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 14px 40px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 2px solid rgba(255,255,255,0.06);
+    transition: background 0.5s;
+  }
+  .timer-bar.active { background: rgba(21,127,196,0.15); }
+  .timer-bar.warning { background: rgba(212,160,23,0.2); }
+  .timer-bar.expired { background: rgba(200,16,46,0.35); animation: flash 0.8s infinite; }
+  @keyframes flash { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .timer-label {
+    font-size: 18px;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-weight: 600;
+  }
+  .timer-value {
+    font-size: 72px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    text-shadow: 0 0 30px rgba(79,195,247,0.5);
+    line-height: 1;
+  }
+  .timer-bar.warning .timer-value { color: #ffd700; text-shadow: 0 0 30px rgba(255,215,0,0.6); }
+  .timer-bar.expired .timer-value { color: #fff; text-shadow: 0 0 40px rgba(255,0,0,0.9); }
+  .timer-inactive .timer-value { font-size: 24px; color: rgba(255,255,255,0.3); }
+  .timer-total {
+    font-size: 16px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .header {
+    padding: 20px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid rgba(255,255,255,0.08);
+  }
+  .header h1 {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, #fff, #7cc5f0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header .brand {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    text-align: right;
+    line-height: 1.4;
+  }
+  .header .brand .top {
+    color: rgba(255,255,255,0.8);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-size: 13px;
+  }
+  .board {
+    padding: 20px 60px;
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+  }
+  .team-row {
+    display: grid;
+    grid-template-columns: 90px 90px 1fr 260px;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 28px;
+    margin-bottom: 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 16px;
+    border: 2px solid transparent;
+    transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 26px;
+  }
+  .team-row.leader {
+    background: linear-gradient(90deg, rgba(255,215,0,0.18), rgba(255,215,0,0.04));
+    border-color: rgba(255,215,0,0.6);
+    box-shadow: 0 0 30px rgba(255,215,0,0.15);
+  }
+  .team-row.moved-up {
+    animation: pulse-up 0.8s ease;
+  }
+  @keyframes pulse-up {
+    0% { transform: translateX(-10px); box-shadow: 0 0 0 0 rgba(79,195,247,0.6); }
+    100% { transform: translateX(0); box-shadow: 0 0 0 20px rgba(79,195,247,0); }
+  }
+  .team-row .place { font-size: 38px; font-weight: 900; color: #ffd700; text-align: center; }
+  .team-row .avatar { font-size: 46px; text-align: center; }
+  .team-row .name { font-size: 28px; font-weight: 700; display: flex; align-items: center; gap: 14px; }
+  .team-row .name .color-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .team-row .score { font-size: 42px; font-weight: 900; text-align: right; color: #4fc3f7; letter-spacing: -1px; }
+  .team-row .score small { font-size: 20px; color: rgba(255,255,255,0.4); font-weight: 400; margin-left: 6px; }
+  .footer {
+    position: fixed;
+    bottom: 16px;
+    left: 60px;
+    right: 60px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+  }
+  .footer .live-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: #4fc3f7;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: blink 1.5s infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .empty-state { text-align: center; padding: 60px 20px; font-size: 24px; color: rgba(255,255,255,0.4); }
+  @media (max-width: 1200px) {
+    .header h1 { font-size: 26px; }
+    .timer-value { font-size: 52px; }
+    .team-row { grid-template-columns: 60px 60px 1fr 180px; padding: 12px 20px; font-size: 20px; }
+    .team-row .place { font-size: 28px; }
+    .team-row .avatar { font-size: 34px; }
+    .team-row .name { font-size: 22px; }
+    .team-row .score { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="timer-bar timer-inactive" id="timerBar">
+  <span class="timer-label">⏱ Таймер</span>
+  <span class="timer-value" id="timerValue">не активен</span>
+  <span class="timer-total" id="timerTotal"></span>
+</div>
+
+<div class="header">
+  <h1>🏆 Турнирная таблица</h1>
+  <div class="brand">
+    <div class="top">Координационный центр</div>
+    <div>ЯрГУ им. П.Г. Демидова</div>
+  </div>
+</div>
+
+<div class="board" id="board">
+  <div class="empty-state">Загрузка результатов…</div>
+</div>
+
+<div class="footer">
+  <div><span class="live-dot"></span><span id="status">Подключение…</span></div>
+  <div id="updated">—</div>
+</div>
+
+<script>
+var prevRank = {};
+var timerExpiredPlayed = false;
+
+// ============================================================
+// ЗВУК — гудок камаза
+// ============================================================
+var audioCtx = null;
+function initAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  return audioCtx;
+}
+
+function playDing() {
+  try {
+    initAudio();
+    var o = audioCtx.createOscillator(); var g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.4);
+  } catch (e) {}
+}
+
+function playTruckHorn() {
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    // Гудок камаза — низкий, громкий, из двух нот одновременно + вибрация
+    var now = audioCtx.currentTime;
+    var dur = 2.2;
+
+    // Основной тон — низкая частота
+    var o1 = audioCtx.createOscillator();
+    var g1 = audioCtx.createGain();
+    o1.type = 'sawtooth';
+    o1.frequency.setValueAtTime(95, now);
+    o1.frequency.linearRampToValueAtTime(105, now + 0.1);
+    o1.frequency.linearRampToValueAtTime(98, now + dur);
+    g1.gain.setValueAtTime(0.0001, now);
+    g1.gain.linearRampToValueAtTime(0.4, now + 0.05);
+    g1.gain.setValueAtTime(0.4, now + dur - 0.2);
+    g1.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o1.connect(g1); g1.connect(audioCtx.destination);
+    o1.start(now); o1.stop(now + dur);
+
+    // Второй тон — на квинту выше, создаёт «камазовское» биение
+    var o2 = audioCtx.createOscillator();
+    var g2 = audioCtx.createGain();
+    o2.type = 'sawtooth';
+    o2.frequency.setValueAtTime(142, now);
+    o2.frequency.linearRampToValueAtTime(158, now + 0.1);
+    o2.frequency.linearRampToValueAtTime(147, now + dur);
+    g2.gain.setValueAtTime(0.0001, now);
+    g2.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    g2.gain.setValueAtTime(0.3, now + dur - 0.2);
+    g2.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o2.connect(g2); g2.connect(audioCtx.destination);
+    o2.start(now); o2.stop(now + dur);
+
+    // Вибрация
+    if (navigator.vibrate) navigator.vibrate([400, 100, 400, 100, 600]);
+  } catch (e) {}
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// ============================================================
+// ТАЙМЕР
+// ============================================================
+function updateTimer() {
+  fetch('/api/timer/state')
+    .then(function(r) { return r.json(); })
+    .then(function(t) {
+      var bar = document.getElementById('timerBar');
+      var val = document.getElementById('timerValue');
+      var total = document.getElementById('timerTotal');
+
+      if (!t.active && !t.expired) {
+        bar.className = 'timer-bar timer-inactive';
+        val.textContent = 'не активен';
+        total.textContent = '';
+        timerExpiredPlayed = false;
+        return;
+      }
+
+      var mm = pad(t.minutesLeft);
+      var ss = pad(t.secondsLeft);
+      val.textContent = mm + ':' + ss;
+      total.textContent = 'из ' + t.totalMinutes + ' мин';
+
+      if (t.expired) {
+        bar.className = 'timer-bar expired';
+        val.textContent = 'ВРЕМЯ ВЫШЛО';
+        total.textContent = '';
+        if (!timerExpiredPlayed) {
+          timerExpiredPlayed = true;
+          playTruckHorn();
+        }
+      } else if (t.minutesLeft < 2) {
+        bar.className = 'timer-bar warning';
+      } else {
+        bar.className = 'timer-bar active';
+      }
+    })
+    .catch(function() {});
+}
+
+// ============================================================
+// ЛИДЕРБОРД
+// ============================================================
+function colorForTeam(team) {
+  if (team.color) return team.color;
+  var palette = ['#157fc4', '#c8102e', '#2e7d32', '#b58b2a', '#7b1fa2', '#0288d1', '#d84315', '#5d4037'];
+  return palette[(team.id - 1) % palette.length];
+}
+function emojiForTeam(team) {
+  if (team.emoji) return team.emoji;
+  var pool = ['🦅', '🐺', '🦁', '🐉', '🐻', '🦊', '🐯', '🦌', '🐗', '🦉'];
+  return pool[(team.id - 1) % pool.length];
+}
+
+function renderBoard(teams) {
+  var board = document.getElementById('board');
+  if (!teams.length) {
+    board.innerHTML = '<div class="empty-state">Пока нет команд. Зарегистрируйте через <b>join.html</b>.</div>';
+    return;
+  }
+  var sorted = teams.slice().sort(function(a, b) { return (b.grand || 0) - (a.grand || 0); });
+  var newRank = {};
+  sorted.forEach(function(t, i) { newRank[t.id] = i; });
+
+  var html = '';
+  sorted.forEach(function(t, i) {
+    var place = i + 1;
+    var medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : place;
+    var isLeader = place === 1 && (t.grand || 0) > 0;
+    var movedUp = prevRank[t.id] !== undefined && prevRank[t.id] > newRank[t.id];
+    html += '<div class="team-row' + (isLeader ? ' leader' : '') + (movedUp ? ' moved-up' : '') + '">' +
+      '<div class="place">' + medal + '</div>' +
+      '<div class="avatar">' + emojiForTeam(t) + '</div>' +
+      '<div class="name"><span class="color-dot" style="background:' + colorForTeam(t) + ';"></span>' + t.name + '</div>' +
+      '<div class="score">' + (t.grand || 0) + '<small>балл.</small></div>' +
+    '</div>';
+  });
+  board.innerHTML = html;
+
+  if (prevRank._leader !== undefined && prevRank._leader !== sorted[0].id) playDing();
+  prevRank = Object.assign({}, newRank, { _leader: sorted[0].id });
+  document.getElementById('updated').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru-RU');
+}
+
+function loadData() {
+  fetch('/api/leaderboard')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      renderBoard(data.teams);
+      document.getElementById('status').textContent = 'Прямой эфир · ' + data.teams.length + ' команд';
+    })
+    .catch(function() { document.getElementById('status').textContent = 'Нет связи с сервером'; });
+}
+
+// Первое касание разрешает звук в браузере
+document.addEventListener('click', function() { initAudio(); playDing(); }, { once: true });
+
+updateTimer();
+loadData();
+setInterval(updateTimer, 1000);
+setInterval(loadData, 3000);
+</script>
+
+</body>
+</html>

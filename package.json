@@ -1,0 +1,30 @@
+{
+  "name": "event-app",
+  "version": "1.0.0",
+  "description": "Кейс-чемпионат для студентов: 4 тура, квиз, кейсы, QR. Координационный центр ЯрГУ.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.3.0",
+    "multer": "^2.4.0",
+    "qrcode": "^1.5.4"
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vlad-Gulnev/eventOK.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Vlad-Gulnev/eventOK/issues"
+  },
+  "homepage": "https://github.com/Vlad-Gulnev/eventOK#readme"
+}

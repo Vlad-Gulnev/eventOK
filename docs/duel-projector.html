@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Блиц — Проектор</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  height: 100%;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: radial-gradient(circle at 50% 30%, #1a3a5c 0%, #0a1628 70%);
+  color: #fff;
+  overflow: hidden;
+}
+.header { padding: 8px 24px; text-align: center; border-bottom: 2px solid rgba(255,255,255,0.08); }
+.header h1 { font-size: 20px; font-weight: 800; letter-spacing: 1px; background: linear-gradient(90deg, #fff, #7cc5f0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.header .sub { font-size: 12px; color: rgba(255,255,255,0.5); letter-spacing: 2px; text-transform: uppercase; }
+
+.stage { display: grid; grid-template-columns: 1fr 300px; gap: 16px; padding: 12px 24px; height: calc(100vh - 70px); }
+
+.left-col { display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+.right-col { display: flex; flex-direction: column; gap: 14px; }
+
+.question-box { flex: 1; background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 12px 16px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.question-box h2 { font-size: 14px; color: #7cc5f0; font-weight: 800; margin: 0; }
+.question-box .q-text { font-size: 24px; font-weight: 700; color: #fff; line-height: 1.25; margin: 0; }
+.gallery { display: flex; flex-direction: row; gap: 0; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; border-radius: 12px; flex: 1; align-items: flex-start; scrollbar-width: thin; min-height: 0; }
+.gallery img { flex: 0 0 100%; width: 100%; height: auto; max-height: 75vh; object-fit: contain; display: block; scroll-snap-align: start; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+
+.timer-circle { background: rgba(255,255,255,0.05); border: 3px solid rgba(255,255,255,0.15); border-radius: 18px; padding: 24px; text-align: center; }
+.timer-circle .label { font-size: 12px; letter-spacing: 3px; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 8px; }
+.timer-circle .value { font-size: 76px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: 4px; }
+.timer-circle.warning { border-color: #c8102e; animation: blink 0.8s infinite; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.answers-box { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.12); border-radius: 18px; padding: 18px; }
+.answers-box h3 { font-size: 13px; letter-spacing: 2px; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 12px; }
+.team-answer { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: rgba(255,255,255,0.04); border-radius: 10px; margin-bottom: 10px; font-size: 18px; transition: background 0.3s; }
+.team-answer.answered { background: rgba(46,125,50,0.25); border-left: 4px solid #52d681; }
+.team-answer .emj { font-size: 30px; }
+.team-answer .nm { flex: 1; font-weight: 700; }
+.team-answer .st { font-size: 15px; font-weight: 700; }
+.team-answer .st.wait { color: #ffd700; }
+.team-answer .st.done { color: #52d681; }
+
+.status-big { text-align: center; padding: 60px 20px; font-size: 28px; color: rgba(255,255,255,0.6); }
+.status-big .emoji { font-size: 80px; display: block; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ Блиц-опрос</h1>
+  <div class="sub">Кто быстрее?</div>
+</div>
+
+<div id="stage-content" class="status-big">
+  <span class="emoji">⏳</span>
+  Ожидание ведущего
+</div>
+
+<script>
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatTime(sec) {
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function renderPreparation(blitz) {
+  var stage = document.getElementById('stage-content');
+  stage.className = 'status-big';
+  stage.style.display = 'block';
+  
+  var namesList = '';
+  if (blitz.players && blitz.players.length > 0) {
+    namesList = '<div style="margin-top:30px; font-size:20px; color:#7cc5f0;">Готовы: ' + blitz.players.length + ' игроков</div>';
+  }
+
+  stage.innerHTML = '<span class="emoji">📝</span> Идет подготовка...<br><span style="font-size:20px;color:rgba(255,255,255,0.6);">Введите имена на телефонах и нажмите «Готов»</span>' + namesList;
+}
+
+function renderRunning(blitz, q, timeLeftSec) {
+  var stage = document.getElementById('stage-content');
+  stage.className = 'stage';
+  stage.style.display = 'grid';
+
+  var galleryHtml = q.images.map(function(src) {
+    return '<img src="' + src + '" alt="">';
+  }).join('');
+
+  var answersHtml = '';
+  if (blitz.teamResults && blitz.teamResults.length > 0) {
+    blitz.teamResults.forEach(function(a, i) {
+      answersHtml += '<div class="team-answer answered"><span class="emj">🏅</span><span class="nm">' + escapeHtml(a.playerName) + '</span><span class="st done">' + (i+1) + ' место</span></div>';
+    });
+  } else {
+    answersHtml = '<div class="team-answer"><span class="emj">⏳</span><span class="nm">Никто ещё не ответил</span></div>';
+  }
+
+  stage.innerHTML =
+    '<div class="left-col">' +
+      '<div class="question-box">' +
+        '<h2>' + escapeHtml(q.title) + '</h2>' +
+        '<div class="q-text">' + escapeHtml(q.text) + '</div>' +
+        '<div class="gallery">' + galleryHtml + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="right-col">' +
+      '<div class="timer-circle' + (timeLeftSec <= 10 ? ' warning' : '') + '" id="timerCircle">' +
+        '<div class="label">Осталось</div>' +
+        '<div class="value" id="timerValue">' + formatTime(timeLeftSec) + '</div>' +
+      '</div>' +
+      '<div class="answers-box">' +
+        '<h3>Топ ответивших</h3>' +
+        answersHtml +
+      '</div>' +
+    '</div>';
+}
+
+function renderFinished(blitz) {
+  var stage = document.getElementById('stage-content');
+  stage.className = 'status-big';
+  stage.style.display = 'block';
+  stage.innerHTML = '<span class="emoji">🏆</span> Раунд завершен!<br><span style="font-size:20px;color:rgba(255,255,255,0.6);">Ведущий объявит результаты</span>';
+}
+
+var lastRenderState = '';
+
+function poll() {
+  fetch('/api/blitz/active')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.blitz) {
+        var stage = document.getElementById('stage-content');
+        stage.className = 'status-big';
+        stage.style.display = 'block';
+        stage.innerHTML = '<span class="emoji">⏳</span> Ожидание ведущего';
+        lastRenderState = '';
+        return;
+      }
+
+      var blitz = data.blitz;
+
+      if (blitz.status === 'preparation') {
+        if (lastRenderState !== 'prep_' + (blitz.players ? blitz.players.length : 0)) {
+          lastRenderState = 'prep_' + (blitz.players ? blitz.players.length : 0);
+          renderPreparation(blitz);
+        }
+        return;
+      }
+
+      if (blitz.status === 'finished') {
+        if (lastRenderState !== 'finished') {
+          lastRenderState = 'finished';
+          renderFinished(blitz);
+        }
+        return;
+      }
+
+      if (blitz.status === 'running') {
+        var q = data.question;
+        if (!q) return;
+
+        if (lastRenderState !== 'running_' + blitz.questionId) {
+          lastRenderState = 'running_' + blitz.questionId;
+          renderRunning(blitz, q, data.timeLeftSec);
+        } else {
+          // Обновляем таймер и ответы
+          var tv = document.getElementById('timerValue');
+          var tc = document.getElementById('timerCircle');
+          if (tv) tv.textContent = formatTime(data.timeLeftSec);
+          if (tc) tc.classList.toggle('warning', data.timeLeftSec <= 10);
+
+          var answersHtml = '';
+          if (blitz.teamResults && blitz.teamResults.length > 0) {
+            blitz.teamResults.forEach(function(a, i) {
+              answersHtml += '<div class="team-answer answered"><span class="emj">🏅</span><span class="nm">' + escapeHtml(a.playerName) + '</span><span class="st done">' + (i+1) + ' место</span></div>';
+            });
+          } else {
+            answersHtml = '<div class="team-answer"><span class="emj">⏳</span><span class="nm">Никто ещё не ответил</span></div>';
+          }
+          var ab = document.querySelector('.answers-box');
+          if (ab) ab.innerHTML = '<h3>Топ ответивших</h3>' + answersHtml;
+        }
+      }
+    })
+    .catch(function() {});
+}
+
+poll();
+setInterval(poll, 1000);
+</script>
+
+</body>
+</html>

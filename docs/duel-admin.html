@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Блиц — Админка</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.d-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0 20px;padding:16px;background:#f7f9fc;border-radius:var(--radius);border:1px solid var(--border)}
+.d-btn{background:var(--primary);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700}
+.d-btn:hover{background:var(--primary-dark)}
+.d-btn.sec{background:#fff;color:var(--text);border:1px solid var(--border)}
+.d-btn.sec:hover{background:#eef1f5}
+.d-btn.danger{background:#fdecec;color:var(--err);border:1px solid #f4c5c5}
+.d-btn.danger:hover{background:#fbdcdc}
+.d-btn.gold{background:linear-gradient(90deg,#b58b2a,#c8102e);color:#fff}
+
+.sched-table{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-top:12px}
+.sched-table th,.sched-table td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:15px}
+.sched-table th{background:#eef2f6;color:var(--primary-dark);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:0.03em}
+
+.score-cell{font-weight:900;font-size:16px;color:var(--primary-dark)}
+.hint-box{background:#e6f2fa;border-left:4px solid var(--primary);padding:12px 16px;border-radius:8px;margin:12px 0;font-size:14px;color:var(--primary-dark);line-height:1.5}
+.hint-box b{font-weight:700}
+.active-banner{padding:16px 20px;background:linear-gradient(90deg,#fff3cd,#ffe082);border-radius:var(--radius);border:2px solid #d4a017;margin-bottom:16px;font-size:15px;color:#664d03;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.active-banner .left{display:flex;align-items:center;gap:12px}
+.active-banner .emj{font-size:32px}
+.active-banner .live{width:12px;height:12px;background:#c8102e;border-radius:50%;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>⚡ Блиц-опрос</h1>
+  </div>
+</header>
+
+<main class="container wide">
+  <div class="card">
+    <div id="activeBox"></div>
+
+    <div class="hint-box">
+      <b>Управление:</b><br>
+      1. Нажмите <b>«1. Подготовка»</b>. Команды введут имена.<br>
+      2. Нажмите <b>«2. Показать вопрос»</b>. Таймер пойдет.<br>
+      3. Когда таймер кончится, нажмите <b>«⏹ Скрыть окна»</b>, чтобы убрать виджет с телефонов команд.
+    </div>
+
+    <div class="d-toolbar" id="toolbar"></div>
+
+    <h2 id="listTitle">Готовность команд</h2>
+    <table class="sched-table">
+      <thead id="tableHead">
+        <tr><th>#</th><th>Команда</th><th>Игрок</th><th>Статус</th></tr>
+      </thead>
+      <tbody id="resultsBody"><tr><td colspan="4">Загрузка…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<script>
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function loadAll() {
+  fetch('/api/blitz/active').then(r => r.json()).then(data => {
+    render(data);
+  }).catch(err => console.error(err));
+}
+
+function render(data) {
+  var box = document.getElementById('activeBox');
+  var toolbar = document.getElementById('toolbar');
+  var tableHead = document.getElementById('tableHead');
+  var tbody = document.getElementById('resultsBody');
+  var listTitle = document.getElementById('listTitle');
+
+  if (!data.blitz) {
+    box.innerHTML = '<div class="hint-box" style="background:#eef1f5;border-color:#c0c8d2;color:#5a6470;"><b>Блиц не запущен.</b> Нажмите «Подготовка», чтобы начать.</div>';
+    toolbar.innerHTML = '<button class="d-btn gold" onclick="startPrepare()" style="font-size:16px;padding:12px 24px;">📝 1. Подготовка</button>' +
+                        '<button class="d-btn sec" onclick="openProjector()">📺 Открыть проектор</button>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px;">Ожидание</td></tr>';
+    return;
+  }
+
+  var b = data.blitz;
+
+  if (b.status === 'preparation') {
+    box.innerHTML = '<div class="active-banner"><div class="left"><span class="live"></span><span class="emj">📝</span><span>Идет сбор имен. Игроки вводят данные.</span></div></div>';
+    toolbar.innerHTML = '<button class="d-btn gold" onclick="startQuestion()" style="font-size:16px;padding:12px 24px;">🚀 2. Показать вопрос</button>' +
+                        '<button class="d-btn danger" onclick="resetBlitz()">Отмена</button>';
+    
+    listTitle.textContent = 'Готовность команд';
+    tableHead.innerHTML = '<tr><th>#</th><th>Команда</th><th>Игрок</th><th>Готовность</th></tr>';
+    tbody.innerHTML = '';
+    if (!b.players || b.players.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Никто еще не ввел имя</td></tr>';
+    } else {
+      b.players.forEach(function(p, i) {
+        tbody.innerHTML += `<tr><td>${i+1}</td><td>ID: ${p.teamId}</td><td>${escapeHtml(p.playerName)}</td><td><span style="color:#2e7d32;font-weight:bold;">✓ Готов</span></td></tr>`;
+      });
+    }
+  } else if (b.status === 'running') {
+    box.innerHTML = '<div class="active-banner"><div class="left"><span class="live"></span><span class="emj">⚡</span><span>Идет опрос! Вопрос №' + b.questionId + '. Осталось: ' + data.timeLeftSec + ' сек.</span></div></div>';
+    toolbar.innerHTML = '<button class="d-btn sec" onclick="openProjector()">📺 Открыть проектор</button>' +
+                        '<button class="d-btn danger" onclick="resetBlitz()" style="margin-left:auto;">⏹ Скрыть окна</button>';
+    
+    listTitle.textContent = 'Ответы команд (Топ)';
+    tableHead.innerHTML = '<tr><th>#</th><th>Команда</th><th>Игрок</th><th>Время</th><th>Очки</th></tr>';
+    tbody.innerHTML = '';
+    if (!b.teamResults || b.teamResults.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Пока нет верных ответов</td></tr>';
+    } else {
+      b.teamResults.forEach(function(r, i) {
+        var pts = [5,4,3,2,1,0,0,0][i] || 0;
+        tbody.innerHTML += `<tr><td>${i+1}</td><td>ID: ${r.teamId}</td><td>${escapeHtml(r.playerName)}</td><td>${(r.timeMs/1000).toFixed(2)} с.</td><td><b class="score-cell">+${pts}</b></td></tr>`;
+      });
+    }
+  } else if (b.status === 'finished') {
+    box.innerHTML = '<div class="active-banner" style="background:linear-gradient(90deg,#e6f4ea,#b8dfc2);border-color:#2e7d32;color:#1f6d2f;"><div class="left"><span class="emj">🏆</span><span>Раунд завершен!</span></div></div>';
+    toolbar.innerHTML = '<button class="d-btn gold" onclick="startPrepare()" style="font-size:16px;padding:12px 24px;">📝 Новый раунд</button>' +
+                        '<button class="d-btn sec" onclick="openProjector()">📺 Открыть проектор</button>' +
+                        '<button class="d-btn danger" onclick="resetBlitz()" style="margin-left:auto;">⏹ Скрыть окна</button>';
+    
+    listTitle.textContent = 'Итоги раунда';
+    tableHead.innerHTML = '<tr><th>#</th><th>Команда</th><th>Игрок</th><th>Время</th><th>Очки</th></tr>';
+    tbody.innerHTML = '';
+    if (!b.teamResults || b.teamResults.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Никто не ответил верно</td></tr>';
+    } else {
+      b.teamResults.forEach(function(r, i) {
+        tbody.innerHTML += `<tr><td>${i+1}</td><td>ID: ${r.teamId}</td><td>${escapeHtml(r.playerName)}</td><td>${(r.timeMs/1000).toFixed(2)} с.</td><td><b class="score-cell">+${r.points}</b></td></tr>`;
+      });
+    }
+  }
+}
+
+function startPrepare() {
+  fetch('/api/blitz/prepare', { method: 'POST' }).then(() => loadAll());
+}
+function startQuestion() {
+  fetch('/api/blitz/start', { method: 'POST' }).then(() => loadAll());
+}
+function resetBlitz() {
+  fetch('/api/blitz/reset', { method: 'POST' }).then(() => loadAll());
+}
+function openProjector() { window.open('duel-projector.html', '_blank'); }
+
+loadAll();
+setInterval(loadAll, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Меню туров — Кейс-чемпионат</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.team-header{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);margin-bottom:20px;display:flex;align-items:center;gap:16px}
+.team-header .avatar{font-size:44px;flex-shrink:0}
+.team-header .info h2{margin:0 0 6px;display:flex;align-items:center;gap:10px}
+.team-header .color-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.tour-card{display:flex;align-items:flex-start;gap:16px;padding:18px 20px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px}
+.tour-card.locked{opacity:0.6;filter:grayscale(0.5)}
+.tour-num{flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:var(--primary-soft);color:var(--primary-dark);font-weight:800;font-size:20px;border-radius:50%}
+.tour-body{flex-grow:1}
+.tour-body h3{margin:0 0 6px;font-size:17px}
+.tour-body p{margin:0 0 10px;font-size:14px;color:var(--muted)}
+.tour-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.status-done{display:inline-block;padding:3px 10px;font-size:12px;font-weight:700;border-radius:999px;background:#e6f4ea;color:var(--ok)}
+.status-todo{display:inline-block;padding:3px 10px;font-size:12px;font-weight:700;border-radius:999px;background:#eef1f5;color:var(--muted)}
+.status-locked{display:inline-block;padding:3px 10px;font-size:12px;font-weight:700;border-radius:999px;background:#fdecec;color:var(--err)}
+.duel-card{background:linear-gradient(135deg,#0f5d92,#157fc4);color:#fff;border:none}
+.duel-card h3{color:#fff}
+.duel-card p{color:rgba(255,255,255,0.8)}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Кейс-чемпионат для студентов</h1>
+  </div>
+</header>
+
+<main class="container">
+  <div class="team-header" id="teamHeader">Загрузка...</div>
+  <div id="tours"></div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<script>
+var CASES = { 1:'Переписка в мессенджере', 2:'Пост в соцсети', 3:'Подозрительный предмет в вузе', 4:'Лёгкий заработок' };
+var params = new URLSearchParams(location.search);
+var teamId = params.get('team');
+var token  = params.get('token');
+var team = null;
+
+function loadStatuses() {
+  if (!team) return;
+  
+  Promise.all([
+    fetch('/api/admin/all').then(r => r.json()),
+    fetch('/api/status/global').then(r => r.json())
+  ]).then(([data, globalStatus]) => {
+    var mine = data.teams.find(x => String(x.id) === String(team.id));
+    var box = document.getElementById('tours');
+    box.innerHTML = '';
+
+    // 1. Тур 1 (Всегда открыт)
+    var t1Done = mine && mine.t1Quiz && mine.t1Quiz.time;
+    box.innerHTML += renderCard(1, 'Правовой щит', 'Квиз + ситуационный кейс', 'play.html', t1Done, true, false);
+
+    // 2. Тур 2 (Открывается после сдачи всеми Тура 1)
+    var t2Done = mine && mine.t2 && mine.t2.time;
+    box.innerHTML += renderCard(2, 'Психологический иммунитет', 'Разбор манипуляций', 'play2.html', t2Done, globalStatus.tour1Done, false);
+
+    // 3. Дуэли (Ожидание после сдачи всеми Тура 2)
+    if (globalStatus.tour2Done) {
+      box.innerHTML += `
+        <div class="tour-card duel-card">
+          <div class="tour-num" style="background:rgba(255,255,255,0.2);color:#fff;">⚔️</div>
+          <div class="tour-body">
+            <h3>Дуэли</h3>
+            <p>Ведущий запускает дуэли на проекторе. Следите за экраном и своим телефоном.</p>
+          </div>
+        </div>`;
+    } else {
+      box.innerHTML += renderCard('⚔️', 'Дуэли', 'Ожидание завершения Тура 2 всеми командами', '#', false, false, true);
+    }
+
+    // 4. Тур 3 (Открывается после Тура 2)
+    var t3Done = mine && mine.t3 && mine.t3.time;
+    box.innerHTML += renderCard(3, 'Контент-баттл', 'Создание профилактического контента', 'play3.html', t3Done, globalStatus.tour2Done, false);
+
+    // 5. Тур 4 (Открывается после Тура 3)
+    var t4Done = mine && mine.t4 && mine.t4.time;
+    box.innerHTML += renderCard(4, 'Найди опасность', 'Игра-детектив и алгоритм действий', 'play4.html', t4Done, globalStatus.tour2Done, false);
+
+    box.innerHTML += '<div style="margin-top:20px;"><button class="btn btn-secondary" onclick="loadStatuses()">🔄 Обновить статусы</button></div>';
+  }).catch(err => {
+    document.getElementById('tours').innerHTML = '<p style="color:var(--err);">Ошибка загрузки: ' + err.message + '</p>';
+  });
+}
+
+function renderCard(num, title, desc, href, done, unlocked, isDuel) {
+  var statusHtml = done ? '<span class="status-done">✓ пройден</span>' : '<span class="status-todo">не начат</span>';
+  var btnHtml = '';
+  var lockClass = unlocked ? '' : ' locked';
+
+  if (isDuel && !unlocked) {
+    btnHtml = '<button class="btn btn-secondary" disabled>🔒 Закрыто</button>';
+    statusHtml = '<span class="status-locked">Ожидание</span>';
+  } else if (!unlocked && !isDuel) {
+    btnHtml = '<button class="btn btn-secondary" disabled>🔒 Откроется после предыдущего тура</button>';
+    statusHtml = '<span class="status-locked">Заблокировано</span>';
+  } else if (!isDuel) {
+    var link = href + '?team=' + team.id + '&token=' + team.token;
+    btnHtml = '<a class="btn btn-primary" href="' + link + '">' + (done ? 'Открыть заново' : 'Начать') + ' →</a>';
+  }
+
+  return `
+    <div class="tour-card${lockClass}">
+      <div class="tour-num">${num}</div>
+      <div class="tour-body">
+        <h3>Тур ${typeof num === 'number' ? num : ''}. ${title} ${statusHtml}</h3>
+        <p>${desc}</p>
+        <div class="tour-actions">${btnHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
+if (token && teamId) {
+  fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(t => {
+      team = t;
+      document.getElementById('teamHeader').innerHTML =
+        '<div class="avatar">' + (team.emoji || '🛡') + '</div>' +
+        '<div class="info">' +
+          '<h2><span class="color-dot" style="background:' + (team.color || '#157fc4') + ';"></span>' + team.name + '</h2>' +
+          '<p style="color:var(--muted);margin:0;">Команда #' + team.id + '. Кейс Тура 1: <b>' + (CASES[team.caseId] || '—') + '</b>.</p>' +
+        '</div>';
+      loadStatuses();
+      setInterval(loadStatuses, 10000);
+    })
+    .catch(() => {
+      document.getElementById('teamHeader').innerHTML = '<div class="info"><h2>Команда не найдена</h2></div>';
+    });
+} else {
+  document.getElementById('teamHeader').innerHTML = '<div class="info"><h2>Нет данных команды</h2></div>';
+}
+</script>
+<script src="video-widget.js"></script>
+<script src="timer-widget.js"></script>
+<script src="duel-widget.js?v=4"></script>
+</body>
+</html>

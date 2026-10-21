@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Колесо фортуны — Кейс-чемпионат</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: radial-gradient(circle at 50% 30%, #1a3a5c 0%, #0a1628 70%);
+    color: #fff;
+    overflow: hidden;
+  }
+  .header { padding: 16px 40px; text-align: center; border-bottom: 2px solid rgba(255,255,255,0.08); }
+  .header h1 {
+    font-size: 32px; font-weight: 800; letter-spacing: 1px;
+    background: linear-gradient(90deg, #fff, #7cc5f0);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .header .sub { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; letter-spacing: 2px; text-transform: uppercase; }
+
+  .stage { display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100vh - 110px); gap: 18px; padding: 20px; }
+
+  .wheel-container { position: relative; width: min(58vh, 520px); height: min(58vh, 520px); }
+
+  .wheel-svg {
+    width: 100%; height: 100%;
+    filter: drop-shadow(0 0 40px rgba(79,195,247,0.35));
+  }
+
+  .arrow-pointer {
+    position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 22px solid transparent;
+    border-right: 22px solid transparent;
+    border-top: 42px solid #ffd700;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+    z-index: 10;
+  }
+
+  .hub {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 76px; height: 76px; border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, #dfe6ec 100%);
+    box-shadow: 0 0 0 6px #0f5d92, 0 0 30px rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; z-index: 5;
+  }
+
+  .result { text-align: center; min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0 20px; }
+  .result .round-label { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .result .duel-title { font-size: 30px; font-weight: 900; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .result .duel-title .team {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 20px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 14px;
+    border: 2px solid rgba(255,255,255,0.15);
+  }
+  .result .duel-title .team .emoji { font-size: 36px; }
+  .result .duel-title .vs { font-size: 22px; color: #ffd700; font-weight: 900; letter-spacing: 2px; }
+  .result .question-badge {
+    font-size: 17px; color: #ffd700; font-weight: 700; letter-spacing: 1px;
+    padding: 5px 18px; background: rgba(255,215,0,0.12); border-radius: 999px;
+  }
+  .result .prompt { font-size: 20px; color: rgba(255,255,255,0.6); font-style: italic; }
+
+  .controls { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .btn-spin {
+    background: linear-gradient(135deg, #157fc4, #0f5d92);
+    color: #fff; border: none; padding: 16px 44px;
+    font-size: 20px; font-weight: 800; border-radius: 16px; cursor: pointer;
+    font-family: inherit; letter-spacing: 2px;
+    box-shadow: 0 8px 24px rgba(21,127,196,0.5);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-spin:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(21,127,196,0.7); }
+  .btn-spin:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-reset {
+    background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    padding: 16px 28px; font-size: 15px; font-weight: 700; border-radius: 16px;
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-reset:hover { background: rgba(255,255,255,0.15); }
+
+  .mute-btn {
+    position: fixed; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.1); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    width: 46px; height: 46px; border-radius: 12px; cursor: pointer;
+    font-size: 20px; z-index: 100;
+  }
+
+  .confetti {
+    position: fixed; top: -50px; width: 12px; height: 12px;
+    z-index: 999; pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+</style>
+</head>
+<body>
+
+<button class="mute-btn" onclick="toggleSound()" id="muteBtn">🔊</button>
+
+<div class="header">
+  <h1>🎡 Колесо фортуны</h1>
+  <div class="sub">Определяем пары для дуэлей</div>
+</div>
+
+<div class="stage">
+  <div class="wheel-container">
+    <div class="arrow-pointer"></div>
+    <svg class="wheel-svg" id="wheelSvg" viewBox="0 0 600 600">
+      <g id="wheelGroup"></g>
+    </svg>
+    <div class="hub">🎯</div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="prompt">Нажмите «Крутить», чтобы выбрать первую команду</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-spin" id="spinBtn" onclick="spin()">🎡 КРУТИТЬ</button>
+    <button class="btn-reset" onclick="resetGame()">↺ Сброс</button>
+  </div>
+</div>
+
+<script>
+var teams = [];
+var state = { phase: 'idle', teamA: null, teamB: null, duelNumber: 1, rotation: 0, soundOn: true };
+
+var ROULETTE_COLORS = ['#157fc4','#c8102e','#2e7d32','#b58b2a','#7b1fa2','#0288d1','#d84315','#5d4037','#388e3c','#c2185b','#00838f','#6d4c41'];
+
+// ================ ЗВУК ================
+var audioCtx = null;
+function initAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return audioCtx; }
+
+function playTick() {
+  if (!state.soundOn || !audioCtx) return;
+  try {
+    var o = audioCtx.createOscillator(); var g = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.value = 1200 + Math.random() * 400;
+    g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.03);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.03);
+  } catch (e) {}
+}
+
+function playWin() {
+  if (!state.soundOn) return;
+  try {
+    initAudio();
+    var notes = [523, 659, 784, 1047];
+    notes.forEach(function(f, i){
+      setTimeout(function(){
+        var o = audioCtx.createOscillator(); var g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 0.4);
+      }, i * 100);
+    });
+  } catch (e) {}
+}
+
+function toggleSound() {
+  state.soundOn = !state.soundOn;
+  document.getElementById('muteBtn').textContent = state.soundOn ? '🔊' : '🔇';
+}
+
+// ================ КОЛЕСО ================
+function polarToXY(cx, cy, r, angleDeg) {
+  var rad = (angleDeg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function drawWheel() {
+  var g = document.getElementById('wheelGroup');
+  g.innerHTML = '';
+  var cx = 300, cy = 300, r = 280;
+  var N = teams.length;
+
+  if (N === 0) {
+    g.innerHTML = '<circle cx="300" cy="300" r="280" fill="#dfe6ec"/>' +
+                  '<text x="300" y="300" text-anchor="middle" dominant-baseline="central" font-size="22" fill="#5a6470">Нет команд</text>';
+    return;
+  }
+
+  var angleStep = 360 / N;
+
+  teams.forEach(function(team, i) {
+    var startAngle = i * angleStep;
+    var endAngle = startAngle + angleStep;
+    var p1 = polarToXY(cx, cy, r, startAngle);
+    var p2 = polarToXY(cx, cy, r, endAngle);
+    var largeArc = angleStep > 180 ? 1 : 0;
+    var path = 'M ' + cx + ' ' + cy +
+               ' L ' + p1.x + ' ' + p1.y +
+               ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + p2.x + ' ' + p2.y +
+               ' Z';
+
+    var color = team.color || ROULETTE_COLORS[i % ROULETTE_COLORS.length];
+
+    var sector = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    sector.setAttribute('d', path);
+    sector.setAttribute('fill', color);
+    sector.setAttribute('stroke', '#fff');
+    sector.setAttribute('stroke-width', '3');
+    g.appendChild(sector);
+
+    var midAngle = startAngle + angleStep / 2;
+    var emojiPos = polarToXY(cx, cy, r * 0.62, midAngle);
+    var textPos = polarToXY(cx, cy, r * 0.85, midAngle);
+
+    var emojiEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    emojiEl.setAttribute('x', emojiPos.x);
+    emojiEl.setAttribute('y', emojiPos.y);
+    emojiEl.setAttribute('text-anchor', 'middle');
+    emojiEl.setAttribute('dominant-baseline', 'central');
+    emojiEl.setAttribute('font-size', N <= 6 ? '48' : N <= 8 ? '40' : '32');
+    emojiEl.setAttribute('transform', 'rotate(' + (midAngle + 90) + ' ' + emojiPos.x + ' ' + emojiPos.y + ')');
+    emojiEl.textContent = team.emoji || '🛡';
+    g.appendChild(emojiEl);
+
+    var nameEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    nameEl.setAttribute('x', textPos.x);
+    nameEl.setAttribute('y', textPos.y);
+    nameEl.setAttribute('text-anchor', 'middle');
+    nameEl.setAttribute('dominant-baseline', 'central');
+    nameEl.setAttribute('font-size', N <= 6 ? '15' : N <= 8 ? '12' : '10');
+    nameEl.setAttribute('font-weight', '800');
+    nameEl.setAttribute('fill', '#fff');
+    nameEl.setAttribute('transform', 'rotate(' + (midAngle + 90) + ' ' + textPos.x + ' ' + textPos.y + ')');
+    nameEl.textContent = team.name.length > 14 ? team.name.slice(0, 13) + '…' : team.name;
+    g.appendChild(nameEl);
+  });
+}
+
+// ================ ВРАЩЕНИЕ ================
+function spin() {
+  if (state.phase === 'done') { nextDuel(); return; }
+
+  var N = teams.length;
+  if (N === 0) { alert('Нет команд для выбора'); return; }
+
+  var eligible = [];
+  teams.forEach(function(t, i) {
+    if (state.phase === 'b' && state.teamA && t.id === state.teamA.id) return;
+    eligible.push({ team: t, index: i });
+  });
+
+  var pick = eligible[Math.floor(Math.random() * eligible.length)];
+  var winIndex = pick.index;
+
+  var angleStep = 360 / N;
+  var sectorCenter = winIndex * angleStep + angleStep / 2;
+  var desiredRotation = (360 - sectorCenter) % 360;
+
+  var currentNorm = ((state.rotation % 360) + 360) % 360;
+  var delta = (desiredRotation - currentNorm + 360) % 360;
+  var turns = 4 + Math.floor(Math.random() * 3);
+  var totalRotation = turns * 360 + delta;
+
+  var startRotation = state.rotation;
+  var endRotation = startRotation + totalRotation;
+  var startTime = performance.now();
+  var duration = 5000;
+  var lastTickAt = 0;
+
+  document.getElementById('spinBtn').disabled = true;
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function animate(now) {
+    var elapsed = now - startTime;
+    var t = Math.min(elapsed / duration, 1);
+    var eased = easeOut(t);
+    var angle = startRotation + (endRotation - startRotation) * eased;
+
+    // Вращение через SVG-атрибут — центр гарантированно 300,300
+    document.getElementById('wheelGroup').setAttribute('transform', 'rotate(' + angle + ' 300 300)');
+
+    // Тик-тик — с замедлением к концу
+    var tickInterval = 60 + t * 350;
+    if (now - lastTickAt > tickInterval) {
+      playTick();
+      lastTickAt = now;
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      state.rotation = endRotation;
+      onSpinEnd(pick.team);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function onSpinEnd(team) {
+  playWin();
+  if (state.phase === 'idle') {
+    state.teamA = team;
+    state.phase = 'b';
+    document.getElementById('spinBtn').textContent = '🎡 КРУТИТЬ ВТОРОЙ РАЗ';
+  } else if (state.phase === 'b') {
+    state.teamB = team;
+    state.phase = 'done';
+    document.getElementById('spinBtn').textContent = '➡ Следующая дуэль';
+    launchConfetti();
+  }
+  renderResult();
+  document.getElementById('spinBtn').disabled = false;
+}
+
+function renderResult() {
+  var el = document.getElementById('result');
+  if (state.phase === 'idle') {
+    el.innerHTML = '<div class="prompt">Нажмите «Крутить», чтобы выбрать первую команду</div>';
+  } else if (state.phase === 'b') {
+    el.innerHTML =
+      '<div class="round-label">Дуэль №' + state.duelNumber + ' · Первая команда выбрана</div>' +
+      '<div class="duel-title">' +
+        '<div class="team" style="border-color:' + state.teamA.color + ';">' +
+          '<span class="emoji">' + state.teamA.emoji + '</span>' +
+          '<span>' + state.teamA.name + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="prompt">Крутите второй раз — выбираем противника</div>';
+  } else if (state.phase === 'done') {
+    var questionNum = ((state.duelNumber - 1) % 10) + 1;
+    el.innerHTML =
+      '<div class="round-label">Дуэль №' + state.duelNumber + ' · Пара определена</div>' +
+      '<div class="duel-title">' +
+        '<div class="team" style="border-color:' + state.teamA.color + ';">' +
+          '<span class="emoji">' + state.teamA.emoji + '</span>' +
+          '<span>' + state.teamA.name + '</span>' +
+        '</div>' +
+        '<span class="vs">VS</span>' +
+        '<div class="team" style="border-color:' + state.teamB.color + ';">' +
+          '<span class="emoji">' + state.teamB.emoji + '</span>' +
+          '<span>' + state.teamB.name + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="question-badge">📋 Вопрос №' + questionNum + ' из Тура 2</div>';
+  }
+}
+
+function nextDuel() {
+  state.teamA = null;
+  state.teamB = null;
+  state.phase = 'idle';
+  state.duelNumber++;
+  document.getElementById('spinBtn').textContent = '🎡 КРУТИТЬ';
+  renderResult();
+}
+
+function resetGame() {
+  var soundBefore = state.soundOn;
+  state = { phase: 'idle', teamA: null, teamB: null, duelNumber: 1, rotation: 0, soundOn: soundBefore };
+  document.getElementById('wheelGroup').setAttribute('transform', 'rotate(0 300 300)');
+  document.getElementById('spinBtn').textContent = '🎡 КРУТИТЬ';
+  document.getElementById('spinBtn').disabled = false;
+  renderResult();
+}
+
+// ================ КОНФЕТТИ ================
+function launchConfetti() {
+  var colors = ['#ffd700', '#4fc3f7', '#ff6b6b', '#52d681', '#c066ff'];
+  for (var i = 0; i < 50; i++) {
+    (function() {
+      var c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random() * colors.length)];
+      c.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+      c.style.animationDelay = (Math.random() * 0.5) + 's';
+      c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      document.body.appendChild(c);
+      setTimeout(function(){ c.remove(); }, 4200);
+    })();
+  }
+}
+
+// ================ ЗАГРУЗКА ================
+function loadTeams() {
+  fetch('/api/teams')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      teams = data || [];
+      drawWheel();
+      renderResult();
+    })
+    .catch(function(err) {
+      document.getElementById('result').innerHTML = '<div class="prompt">Ошибка: ' + err.message + '</div>';
+    });
+}
+
+document.addEventListener('click', function() { initAudio(); }, { once: true });
+
+loadTeams();
+</script>
+
+</body>
+</html>

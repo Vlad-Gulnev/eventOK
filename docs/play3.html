@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тур 3. Контент-баттл</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.step-title{color:var(--primary-dark);margin-top:24px}
+.format-grid,.topic-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin:12px 0 20px}
+.format-card,.topic-card{padding:14px 16px;background:#fff;border:2px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color 0.15s,background 0.15s}
+.format-card:hover,.topic-card:hover{border-color:var(--primary);background:var(--primary-soft)}
+.format-card.selected,.topic-card.selected{border-color:var(--primary);background:var(--primary-soft)}
+.format-card h4,.topic-card h4{margin:0 0 4px;font-size:15px;color:var(--primary-dark)}
+.format-card p,.topic-card p{margin:0;font-size:13px;color:var(--muted)}
+textarea{width:100%;min-height:120px;padding:12px;font-family:inherit;font-size:15px;border:1px solid var(--border);border-radius:var(--radius);resize:vertical;box-sizing:border-box}
+input[type="text"],input[type="file"]{width:100%;padding:11px 14px;font-size:16px;border:1px solid var(--border);border-radius:var(--radius);box-sizing:border-box}
+.ticket{background:#fff;border:2px solid var(--primary);border-radius:var(--radius);padding:20px;margin:20px 0}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:border-color 0.15s,background 0.15s;background:#fafbfd}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--primary);background:var(--primary-soft)}
+.upload-zone p{margin:0;color:var(--muted);font-size:14px}
+.preview{max-width:100%;max-height:300px;margin-top:12px;border-radius:var(--radius);box-shadow:var(--shadow)}
+.timer-hint{background:#e6f2fa;border-left:4px solid var(--primary);padding:14px 18px;border-radius:8px;margin:16px 0;font-size:15px;color:var(--primary-dark)}
+.file-list{margin-top:12px;text-align:left;font-size:14px;padding-left:20px;}
+.file-list li{margin-bottom:4px;}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Тур 3. Контент-баттл</h1>
+  </div>
+</header>
+
+<main class="container">
+  <p id="who" style="color: var(--muted); font-size: 14px;"></p>
+
+  <div class="card">
+    <h2>Задача</h2>
+    <p>Создайте профилактический контент на выбранную тему. Формат, тему и работу выбираете вы. На создание — 15 минут. Затем 5 минут на загрузку результата.</p>
+    <div class="timer-hint">
+      <b>⏱ Следите за таймером в правом верхнем углу.</b><br>
+      Когда он запущен ведущим — у вас есть 15 минут на работу и 5 минут на загрузку.
+    </div>
+  </div>
+
+  <h3 class="step-title">Шаг 1. Формат</h3>
+  <div class="format-grid" id="formatGrid"></div>
+
+  <h3 class="step-title">Шаг 2. Тема</h3>
+  <div class="topic-grid" id="topicGrid"></div>
+
+  <h3 class="step-title">Шаг 3. Создание (15 минут)</h3>
+  <div class="card">
+    <p><b>Используйте телефон и удобный редактор: Supa, VistaCreate, Flyvi (для графики) или InShot, YouCut (для видео). Всё есть в RuStore.</b> Контент должен быть:</p>
+    <ul>
+      <li>Понятным для студентов 1–4 курсов.</li>
+      <li>Точным по фактам.</li>
+      <li>Оригинальным и виральным.</li>
+    </ul>
+    <p style="color:var(--muted);font-size:14px;">Когда работа готова — переходите к Шагу 4.</p>
+  </div>
+
+  <h3 class="step-title">Шаг 4. Загрузка работы (5 минут)</h3>
+  <div class="card">
+    <div id="fileMode">
+      <p><b>Прикрепите файлы</b> (можно несколько, общим весом до 1 ГБ)</p>
+      <div class="upload-zone" id="uploadZone">
+        <p>Перетащите файлы сюда или <b>нажмите, чтобы выбрать</b></p>
+        <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,video/mp4,video/webm" style="display:none;">
+      </div>
+      <div id="filePreview"></div>
+      <p style="margin-top:12px;color:var(--muted);font-size:13px;">Если файл больше 1 ГБ или это длинное видео — используйте ссылку ниже.</p>
+    </div>
+
+    <div id="linkMode" style="margin-top:16px;">
+      <label for="link"><b>Ссылка на работу (если не прикрепляете файл)</b></label>
+      <input type="text" id="link" placeholder="https://t.me/... или https://vk.com/... или облако">
+    </div>
+
+    <label for="desc" style="margin-top:16px;display:block;"><b>Краткое описание работы</b></label>
+    <textarea id="desc" placeholder="Идея, кому адресовано, что хотели донести. 3–5 предложений."></textarea>
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" id="submitBtn" onclick="submitWork()">Отправить работу</button>
+      <a class="btn btn-secondary" href="menu.html?team=0&token=0" id="backLink" style="margin-left:10px;">← В меню туров</a>
+    </div>
+    <div id="resultBox"></div>
+  </div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<script src="timer-widget.js"></script>
+<script>
+var params = new URLSearchParams(location.search);
+var teamId = params.get('team');
+var token  = params.get('token');
+var teamName = 'Команда #' + teamId;
+document.getElementById('backLink').href = 'menu.html?team=' + teamId + '&token=' + token;
+
+fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
+  .then(function(r) { return r.ok ? r.json() : null; })
+  .then(function(t) { if (t) teamName = t.name; document.getElementById('who').textContent = teamName; });
+
+var FORMATS = [
+  { id: 'mem', title: 'Мем', desc: 'Картинка + короткая подпись' },
+  { id: 'video', title: 'Короткое видео', desc: 'Reels / Shorts / клип до 60 секунд' },
+  { id: 'post', title: 'Пост в соцсети', desc: 'Текст + картинка, до 500 знаков' },
+  { id: 'poster', title: 'Плакат / инфографика', desc: 'Сторис или A4, наглядная схема' }
+];
+var TOPICS = [
+  { id: 't1', title: 'Вербовка в мессенджере', desc: 'Как распознать признаки' },
+  { id: 't2', title: 'Угрозы в интернете', desc: 'Что делать, если тебе угрожают' },
+  { id: 't3', title: 'Лёгкий заработок', desc: 'Почему это опасно' },
+  { id: 't4', title: 'Мифы об экстремизме', desc: 'Развенчиваем заблуждения' },
+  { id: 't5', title: 'Случайное соучастие', desc: 'Как не стать «живой бомбой»' },
+  { id: 't6', title: 'Бесхозные предметы', desc: 'Что делать в общественном месте' }
+];
+
+var selectedFormat = null;
+var selectedTopic = null;
+var selectedFiles = []; // Массив файлов
+
+function renderOptions() {
+  var fg = document.getElementById('formatGrid');
+  fg.innerHTML = '';
+  FORMATS.forEach(function(f) {
+    var d = document.createElement('div');
+    d.className = 'format-card';
+    d.dataset.id = f.id;
+    d.innerHTML = '<h4>' + f.title + '</h4><p>' + f.desc + '</p>';
+    d.onclick = function() { selectedFormat = f.id; refreshSelection(); };
+    fg.appendChild(d);
+  });
+  var tg = document.getElementById('topicGrid');
+  tg.innerHTML = '';
+  TOPICS.forEach(function(t) {
+    var d = document.createElement('div');
+    d.className = 'topic-card';
+    d.dataset.id = t.id;
+    d.innerHTML = '<h4>' + t.title + '</h4><p>' + t.desc + '</p>';
+    d.onclick = function() { selectedTopic = t.id; refreshSelection(); };
+    tg.appendChild(d);
+  });
+}
+function refreshSelection() {
+  document.querySelectorAll('.format-card').forEach(function(c) { c.classList.toggle('selected', c.dataset.id === selectedFormat); });
+  document.querySelectorAll('.topic-card').forEach(function(c) { c.classList.toggle('selected', c.dataset.id === selectedTopic); });
+}
+
+function initUpload() {
+  var zone = document.getElementById('uploadZone');
+  var input = document.getElementById('fileInput');
+  zone.addEventListener('click', function() { input.click(); });
+  zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', function() { zone.classList.remove('dragover'); });
+  zone.addEventListener('drop', function(e) { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+  input.addEventListener('change', function() { if (input.files.length) handleFiles(input.files); });
+}
+
+function handleFiles(files) {
+  for (var i = 0; i < files.length; i++) {
+    selectedFiles.push(files[i]);
+  }
+  renderFilePreviews();
+}
+
+function renderFilePreviews() {
+  var preview = document.getElementById('filePreview');
+  if (selectedFiles.length === 0) {
+    preview.innerHTML = '';
+    return;
+  }
+  
+  var html = '<ul class="file-list">';
+  selectedFiles.forEach(function(f, index) {
+    html += '<li>📎 ' + f.name + ' <span style="color:#999">(' + (f.size / (1024*1024)).toFixed(2) + ' МБ)</span> ';
+    html += '<button style="color:red;border:none;background:none;cursor:pointer;font-weight:bold;" onclick="removeFile(' + index + ')">✕</button></li>';
+  });
+  html += '</ul>';
+  
+  // Если первый файл картинка - показываем превью
+  if (selectedFiles[0].type.indexOf('image/') === 0) {
+    var url = URL.createObjectURL(selectedFiles[0]);
+    html += '<img class="preview" src="' + url + '" alt="">';
+  }
+
+  preview.innerHTML = html;
+}
+
+window.removeFile = function(index) {
+  selectedFiles.splice(index, 1);
+  renderFilePreviews();
+};
+
+function submitWork() {
+  if (!selectedFormat) { alert('Выберите формат'); return; }
+  if (!selectedTopic) { alert('Выберите тему'); return; }
+  var desc = document.getElementById('desc').value.trim();
+  if (desc.length < 20) { alert('Описание не короче 20 символов'); return; }
+
+  var fmtTitle = (FORMATS.find(function(f) { return f.id === selectedFormat; }) || {}).title || '';
+  var topTitle = (TOPICS.find(function(t) { return t.id === selectedTopic; }) || {}).title || '';
+
+  if (selectedFiles.length > 0) {
+    var fd = new FormData();
+    
+    // Добавляем ВСЕ файлы в FormData
+    for (var i = 0; i < selectedFiles.length; i++) {
+      fd.append('files', selectedFiles[i]);
+    }
+    
+    fd.append('teamId', teamId);
+    fd.append('teamName', teamName);
+    fd.append('format', selectedFormat);
+    fd.append('formatTitle', fmtTitle);
+    fd.append('topic', selectedTopic);
+    fd.append('topicTitle', topTitle);
+    fd.append('description', desc);
+
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').textContent = 'Загрузка... (может занять время)';
+
+    fetch('/api/tour3/upload', { method: 'POST', body: fd })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.error) { alert('Ошибка: ' + res.error); document.getElementById('submitBtn').disabled = false; document.getElementById('submitBtn').textContent = 'Отправить работу'; return; }
+        showSuccess({ fileUrls: res.fileUrls, fileNames: res.fileNames, fmtTitle: fmtTitle, topTitle: topTitle, bonus: res.bonus });
+      })
+      .catch(function(err) {
+        alert('Ошибка сети: ' + err.message);
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('submitBtn').textContent = 'Отправить работу';
+      });
+  } else {
+    var link = document.getElementById('link').value.trim();
+    if (!link) { alert('Вставьте ссылку или прикрепите файл'); return; }
+
+    fetch('/api/tour3/link', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teamId: teamId, teamName: teamName, format: selectedFormat, formatTitle: fmtTitle, topic: selectedTopic, topicTitle: topTitle, description: desc, link: link })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(res) { showSuccess({ link: link, fmtTitle: fmtTitle, topTitle: topTitle, bonus: res.bonus }); });
+  }
+}
+
+function showSuccess(data) {
+  var preview = '';
+  if (data.fileUrls) {
+    preview = '<p><b>Загруженные файлы:</b></p><ul>';
+    data.fileUrls.forEach(function(url, i) {
+      preview += '<li><a href="' + url + '" target="_blank">' + data.fileNames[i] + '</a></li>';
+    });
+    preview += '</ul>';
+  }
+  if (data.link) preview = '<p>🔗 <a href="' + data.link + '" target="_blank">' + data.link + '</a></p>';
+
+  var bonusHtml = data.bonus ? '<p style="color:#856404;font-weight:700;">🎯 Бонус за скорость: +' + data.bonus + ' балла!</p>' : '';
+
+  document.getElementById('resultBox').innerHTML =
+    '<div class="ticket" style="margin-top:20px;">' +
+      '<h3>Работа отправлена</h3>' +
+      '<p><b>Команда:</b> ' + teamName + '</p>' +
+      '<p><b>Формат:</b> ' + data.fmtTitle + '</p>' +
+      '<p><b>Тема:</b> ' + data.topTitle + '</p>' +
+      preview + bonusHtml +
+      '<p style="color:#666;font-size:13px;">Жюри оценит работу и внесёт баллы.</p>' +
+      '<p style="margin-top:16px;"><a class="btn btn-primary" href="menu.html?team=' + teamId + '&token=' + token + '">← Вернуться в меню туров</a></p>' +
+    '</div>';
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+renderOptions();
+initUpload();
+</script>
+</body>
+</html>

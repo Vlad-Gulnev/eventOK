@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вход команды</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 12px 0 20px;
+  }
+  .avatar-opt {
+    font-size: 42px;
+    padding: 10px;
+    text-align: center;
+    border: 3px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #fff;
+  }
+  .avatar-opt:hover { border-color: var(--primary); background: var(--primary-soft); }
+  .avatar-opt.selected {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(21,127,196,0.3);
+  }
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin: 12px 0 20px;
+  }
+  .color-opt {
+    height: 46px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .color-opt:hover { transform: scale(1.05); }
+  .color-opt.selected {
+    border-color: #fff;
+    box-shadow: 0 0 0 3px var(--primary), 0 4px 12px rgba(0,0,0,0.2);
+    transform: scale(1.1);
+  }
+  .color-opt.selected::after {
+    content: '✓';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 900;
+    font-size: 22px;
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  }
+  .preview-team {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: #f7f9fc;
+    border-radius: 12px;
+    margin: 16px 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Кейс-чемпионат для студентов</h1>
+  </div>
+</header>
+
+<main class="container">
+  <div class="card" id="card">Загрузка...</div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<script>
+var CASES = {
+  1: 'Переписка в мессенджере',
+  2: 'Пост в соцсети',
+  3: 'Подозрительный предмет в вузе',
+  4: 'Лёгкий заработок'
+};
+
+var AVATARS = ['🦅','🐺','🦁','🐉','🐻','🦊','🐯','🦌','🐗','🦉'];
+var COLORS = ['#157fc4','#c8102e','#2e7d32','#b58b2a','#7b1fa2','#0288d1','#d84315','#5d4037'];
+
+var params = new URLSearchParams(location.search);
+var token  = params.get('token');
+var teamId = params.get('team');
+var card   = document.getElementById('card');
+
+// Сценарий 1: пришли по QR с токеном
+if (token && teamId) {
+  fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
+    .then(function(r) {
+      if (!r.ok) throw new Error('not found');
+      return r.json();
+    })
+    .then(function(team) {
+      if (!team || String(team.id) !== String(teamId)) {
+        card.innerHTML = '<h2>Команда не найдена</h2><p>Обратитесь к организатору.</p>';
+        return;
+      }
+      var caseTitle = CASES[team.caseId] || '—';
+      card.innerHTML =
+        '<h2>' + (team.emoji || '🛡') + ' ' + team.name + '</h2>' +
+        '<p>Команда #' + team.id + '. Ваш ситуационный кейс: <b>' + caseTitle + '</b>.</p>' +
+        '<p style="margin-top:20px;"><a class="btn btn-primary" href="menu.html?team=' + team.id + '&token=' + team.token + '">Перейти в меню туров →</a></p>';
+    })
+    .catch(function() {
+      card.innerHTML = '<h2>Команда не найдена</h2><p>Обратитесь к организатору.</p>';
+    });
+} else {
+  // Сценарий 2: регистрация
+  var selectedAvatar = AVATARS[0];
+  var selectedColor = COLORS[0];
+
+  function renderRegistration() {
+    var avatarHTML = '';
+    AVATARS.forEach(function(a) {
+      avatarHTML += '<div class="avatar-opt' + (a === selectedAvatar ? ' selected' : '') + '" onclick="pickAvatar(\'' + a + '\')">' + a + '</div>';
+    });
+    var colorHTML = '';
+    COLORS.forEach(function(c) {
+      colorHTML += '<div class="color-opt' + (c === selectedColor ? ' selected' : '') + '" style="background:' + c + ';" onclick="pickColor(\'' + c + '\')"></div>';
+    });
+
+    card.innerHTML =
+      '<h2>Регистрация команды</h2>' +
+      '<p>Капитан выбирает эмблему и цвет команды. Они сохранятся на сервере.</p>' +
+
+      '<label for="name" style="margin-top:16px;display:block;"><b>Название команды</b></label>' +
+      '<input id="name" type="text" placeholder="Например: Правоведы" style="width:100%;padding:11px 14px;font-size:16px;border:1px solid var(--border);border-radius:var(--radius);box-sizing:border-box;">' +
+
+      '<label style="margin-top:20px;display:block;"><b>Эмблема команды</b></label>' +
+      '<div class="avatar-grid">' + avatarHTML + '</div>' +
+
+      '<label style="display:block;"><b>Цвет команды</b></label>' +
+      '<div class="color-grid">' + colorHTML + '</div>' +
+
+      '<div class="preview-team" id="previewTeam">' +
+        '<span style="font-size:36px;">' + selectedAvatar + '</span>' +
+        '<span style="width:14px;height:14px;border-radius:50%;background:' + selectedColor + ';"></span>' +
+        '<span id="previewName">Название команды</span>' +
+      '</div>' +
+
+      '<button class="btn btn-primary" onclick="register()" style="margin-top:8px;">Зарегистрировать команду</button>' +
+      '<div id="result"></div>';
+  }
+
+  window.pickAvatar = function(a) {
+    selectedAvatar = a;
+    renderRegistration();
+  };
+  window.pickColor = function(c) {
+    selectedColor = c;
+    renderRegistration();
+  };
+
+  window.register = function() {
+    var nameInput = document.getElementById('name');
+    var name = nameInput.value.trim() || 'Без названия';
+    var btn = document.querySelector('#card button.btn-primary');
+    btn.disabled = true;
+    btn.textContent = 'Регистрация...';
+
+    fetch('/api/teams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, emoji: selectedAvatar, color: selectedColor })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(team) {
+        var caseTitle = CASES[team.caseId] || '—';
+        var base = location.origin + location.pathname.replace(/\/[^\/]*$/, '/');
+        var link = base + 'menu.html?token=' + team.token + '&team=' + team.id;
+
+        document.getElementById('result').innerHTML =
+          '<div class="msg ok" style="margin-top:20px;">Команда сохранена на сервере</div>' +
+          '<div class="preview-team" style="margin-top:8px;">' +
+            '<span style="font-size:36px;">' + team.emoji + '</span>' +
+            '<span style="width:14px;height:14px;border-radius:50%;background:' + team.color + ';"></span>' +
+            '<span>' + team.name + '</span>' +
+          '</div>' +
+          '<p><b>Токен:</b> <code>' + team.token + '</code></p>' +
+          '<p><b>Ситуационный кейс:</b> ' + caseTitle + '</p>' +
+          '<p style="margin-top:16px;"><b>Ссылка для команды:</b></p>' +
+          '<p style="font-size:13px;word-break:break-all;"><a href="' + link + '">' + link + '</a></p>' +
+          '<p style="margin-top:12px;">' +
+            '<a class="btn btn-secondary" href="' + link + '">Открыть страницу команды →</a>' +
+          '</p>';
+
+        btn.disabled = false;
+        btn.textContent = 'Зарегистрировать ещё одну';
+        nameInput.value = '';
+      })
+      .catch(function(err) {
+        alert('Ошибка: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Зарегистрировать команду';
+      });
+  };
+
+  renderRegistration();
+}
+</script>
+
+</body>
+</html>

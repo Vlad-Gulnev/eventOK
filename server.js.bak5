@@ -1,0 +1,579 @@
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+
+const app = express();
+app.use(express.json({ limit: '2mb' }));
+app.use(express.static('docs'));
+
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+app.use('/uploads', express.static(UPLOAD_DIR));
+
+const DB_FILE = path.join(__dirname, 'data', 'db.json');
+if (!fs.existsSync(path.dirname(DB_FILE))) fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
+if (!fs.existsSync(DB_FILE)) {
+  fs.writeFileSync(DB_FILE, JSON.stringify({
+    teams: [], tour1: {}, tour2: {}, tour3: {}, tour4: {},
+    timer: { active: false, endTime: null, totalMinutes: 0 },
+    speedBonus: { tour1: [], tour2: [], tour3: [], tour4: [] },
+    duel: { schedule: [], active: null, history: [] },
+    duelScores: {}
+  }, null, 2));
+}
+
+function readDB() {
+  try {
+    const d = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+    if (!d.duel) d.duel = { schedule: [], active: null, history: [] };
+    if (!d.duelScores) d.duelScores = {};
+    return d;
+  } catch (e) {
+    return { teams: [], tour1: {}, tour2: {}, tour3: {}, tour4: {}, timer: {}, speedBonus: {}, duel: { schedule: [], active: null, history: [] }, duelScores: {} };
+  }
+}
+function writeDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)); }
+
+// ============================================================
+// ВОПРОСЫ ДЛЯ ДУЭЛЕЙ (те же 10, что в play2.html)
+// ============================================================
+const DUEL_QUESTIONS = [
+  { id: 1, title: 'Ситуация 1. Угроза в сети',
+    images: ['img/anon1.webp','img/anon2.webp','img/anon3.webp','img/anon4.webp'],
+    text: 'Что нужно делать в первую очередь, если тебе угрожают в интернете?',
+    multiple: false,
+    options: ['Ответить тем же','Сохранить скриншоты, заблокировать, рассказать старшим или в полицию','Просто удалить аккаунт','Ничего, это шутка'],
+    correct: [1] },
+  { id: 2, title: 'Ситуация 2. «Живые бомбы»',
+    images: ['img/boom1.webp','img/boom2.webp','img/boom3.webp'],
+    text: 'Как понять, что тебе предлагают опасную «подработку»? (отметь все верные)',
+    multiple: true,
+    options: ['Оплата слишком высокая за «несложную» работу','Просят никому не рассказывать','Просят передать посылку или сфотографировать объект','Есть официальный договор, сайт компании, прозрачные условия'],
+    correct: [0,1,2] },
+  { id: 3, title: 'Ситуация 3. Вовлечение через мошенничество',
+    images: ['img/boom4.webp','img/boom5.webp','img/boom6.webp','img/boom7.webp'],
+    text: 'Что ты сделаешь, если незнакомый человек (или знакомый) просит передать посылку?',
+    multiple: false,
+    options: ['Соглашусь, если платят хорошо','Спрошу, что внутри','Откажусь и предупрежу близких, если просят знакомые','Соглашусь, если человек выглядит надёжным'],
+    correct: [2] },
+  { id: 4, title: 'Ситуация 4. Как защитить себя',
+    images: ['img/anon1.webp','img/boom7.webp'],
+    text: 'Какие действия помогут защитить тебя и близких? (отметь все верные)',
+    multiple: true,
+    options: ['Рассказать близкому, если он нашёл «странную подработку»','Обращать внимание на бесхозные предметы','Не соглашаться передавать посылки, даже по просьбе знакомого','Сообщать о признаках вовлечения старшим или в полицию','Решать всё самому, никого не посвящать','Смеяться и не воспринимать серьёзно'],
+    correct: [0,1,2,3] },
+  { id: 5, title: 'Ситуация 5. Один клик может привести к уголовному делу',
+    images: ['img/case1-a.png','img/case1-b.png'],
+    text: 'Что должно насторожить в поведении человека, который ещё не совершил преступление? (отметь все верные)',
+    multiple: true,
+    options: ['Изучение в интернете материалов по изготовлению взрывных устройств','Интерес к деструктивным сообществам и закрытым группам','Агрессивный контент в личных подборках','Обычный интерес к химии или технике'],
+    correct: [0,1,2] },
+  { id: 6, title: 'Ситуация 6. Что делать, если втягивают',
+    images: ['img/case1-a.png','img/case1-b.png'],
+    text: 'Что делать, если ты замечаешь, что тебя или друга втягивают в опасное сообщество?',
+    multiple: false,
+    options: ['Наблюдать дальше, чтобы понять до конца','Вовремя дистанцироваться и обратиться к близким, преподавателям или специалистам','Держать в тайне, чтобы не было проблем','Продолжать общаться — «авось, пронесёт»'],
+    correct: [1] },
+  { id: 7, title: 'Ситуация 7. Как манипуляторы используют молодёжь',
+    images: ['img/case2-a.png','img/case2-b.png'],
+    text: 'Почему молодые люди чаще становятся целью вербовщиков? (отметь все верные)',
+    multiple: true,
+    options: ['Ими легче манипулировать через страх','Через обещания заработка','Через чувство значимости и «своей» компании','Потому что они лучше разбираются в технологиях'],
+    correct: [0,1,2] },
+  { id: 8, title: 'Ситуация 8. Что нельзя делать по просьбе «куратора»',
+    images: ['img/case2-a.png','img/case2-b.png'],
+    text: 'Что нельзя делать, если незнакомый «куратор» просит выполнить поручение? (отметь все верные)',
+    multiple: true,
+    options: ['Передавать личные данные и документы','Переводить деньги по указанию третьих лиц','Соглашаться на действия, смысл которых скрывается','Уточнять детали у официальных источников'],
+    correct: [0,1,2] },
+  { id: 9, title: 'Ситуация 9. Телефонные мошенники',
+    images: ['img/case3-a.png','img/case3-b.png'],
+    text: 'Что должно насторожить в звонке от «сотрудника банка»? (отметь все верные)',
+    multiple: true,
+    options: ['Требование перевести деньги на «безопасный счёт»','Просьба никому не рассказывать о разговоре','Срочность и давление («действуйте прямо сейчас»)','Предложение прийти в отделение банка лично'],
+    correct: [0,1,2] },
+  { id: 10, title: 'Ситуация 10. Если стал жертвой — что делать',
+    images: ['img/case3-a.png','img/case3-b.png'],
+    text: 'Если ты понял, что стал жертвой мошенников или тебя втягивают — что делать?',
+    multiple: false,
+    options: ['Молчать, чтобы не было стыдно','Прекратить общение, рассказать близким и обратиться в банк или полицию','Продолжить разговор, чтобы «выиграть время»','Решить всё самостоятельно, никого не посвящая'],
+    correct: [1] }
+];
+
+app.get('/api/tour2/questions', (req, res) => res.json(DUEL_QUESTIONS));
+
+// ============================================================
+// БОНУС ЗА СКОРОСТЬ + КАЧЕСТВО
+// ============================================================
+function giveSpeedBonus(db, tourKey, teamId) {
+  if (!db.speedBonus) db.speedBonus = { tour1: [], tour2: [], tour3: [], tour4: [] };
+  if (!db.speedBonus[tourKey]) db.speedBonus[tourKey] = [];
+  var arr = db.speedBonus[tourKey];
+  if (arr.indexOf(teamId) !== -1) return 0;
+  if (arr.length === 0) { arr.push(teamId); return 3; }
+  if (arr.length === 1) { arr.push(teamId); return 2; }
+  return 0;
+}
+
+function computeQualityBonus(t, db) {
+  const t1 = db.tour1[t.id] || {};
+  const t2 = db.tour2[t.id] || {};
+  const t3 = db.tour3[t.id] || {};
+  const t4 = db.tour4[t.id] || {};
+  const bonus = { t1Quiz: 0, t1Case: 0, t2: 0, t3: 0, t4Objects: 0, t4Algos: 0, t4Misses: 0, total: 0 };
+
+  if (t1.quiz && t1.quiz.correct === 30) bonus.t1Quiz = 5;
+  if (Array.isArray(t1.caseScore)) {
+    const s = t1.caseScore.reduce((a, b) => a + (Number(b) || 0), 0);
+    if (s === 5) bonus.t1Case = 3;
+  }
+  if (t2.correct === 20) bonus.t2 = 3;
+  if (Array.isArray(t3.score)) {
+    const s = t3.score.reduce((a, b) => a + (Number(b) || 0), 0);
+    if (s === 10) bonus.t3 = 3;
+  }
+  if (t4.stage1 && t4.stage1.totalFound === 10) bonus.t4Objects = 5;
+  if (t4.stage1 && t4.stage1.algorithmsCorrect === 6) bonus.t4Algos = 3;
+  if (t4.stage1 && t4.stage1.time && t4.stage1.totalMisses === 0) bonus.t4Misses = 3;
+
+  bonus.total = bonus.t1Quiz + bonus.t1Case + bonus.t2 + bonus.t3 + bonus.t4Objects + bonus.t4Algos + bonus.t4Misses;
+  return bonus;
+}
+
+function computeBadgesFromStats(s) {
+  const badges = [];
+  if (s.t1Quiz && s.t1Quiz.correct === 30) badges.push({ id:'ideal_quiz', icon:'💎', title:'Идеальный квиз', desc:'30 из 30 в Туре 1' });
+  if (s.t1Case && Array.isArray(s.t1Case.score)) {
+    const sum = s.t1Case.score.reduce((a, b) => a + (Number(b) || 0), 0);
+    if (sum === 5) badges.push({ id:'thinker', icon:'🧠', title:'Мыслитель', desc:'Кейс Тура 1 на 5/5' });
+  }
+  if (s.t2 && s.t2.correct === 20) badges.push({ id:'immunity', icon:'🛡', title:'Иммунитет', desc:'20 из 20 в Туре 2' });
+  if (s.t3 && Array.isArray(s.t3.score)) {
+    const sum = s.t3.score.reduce((a, b) => a + (Number(b) || 0), 0);
+    if (sum === 10) badges.push({ id:'content_master', icon:'📢', title:'Контент-мастер', desc:'10 из 10 в Туре 3' });
+  }
+  if (s.t4 && s.t4.stage1 && s.t4.stage1.totalFound === 10) badges.push({ id:'sharp_eye', icon:'🔍', title:'Острый глаз', desc:'Нашёл все 10 объектов' });
+  if (s.t4 && s.t4.stage1 && s.t4.stage1.totalFound === 10 && s.t4.stage1.totalMisses === 0) badges.push({ id:'sniper', icon:'🎯', title:'Снайпер', desc:'Все объекты без промахов' });
+  if (s.speedBonusTotal >= 5) badges.push({ id:'speed', icon:'⚡', title:'Скорость', desc:'Бонус за скорость в 2+ турах' });
+  if (s.duelWins >= 2) badges.push({ id:'duelist', icon:'⚔️', title:'Дуэлянт', desc:'Победа в 2+ дуэлях' });
+  const allPassed = s.t1Quiz && s.t1Quiz.time && s.t2 && s.t2.time && s.t3 && s.t3.time && s.t4 && s.t4.time;
+  const idealAll = s.t1Quiz && s.t1Quiz.correct === 30 && s.t2 && s.t2.correct === 20 && s.t4 && s.t4.stage1 && s.t4.stage1.totalFound === 10 && s.t4.stage1.algorithmsCorrect === 6;
+  if (allPassed && idealAll) badges.push({ id:'absolute', icon:'👑', title:'Абсолют', desc:'Идеально пройдены все 4 тура' });
+  return badges;
+}
+
+// ============================================================
+// ТАЙМЕР
+// ============================================================
+app.post('/api/timer/start', (req, res) => {
+  const minutes = Number(req.body.minutes) || 15;
+  const db = readDB();
+  db.timer = { active: true, endTime: Date.now() + minutes * 60 * 1000, totalMinutes: minutes, startedAt: Date.now() };
+  writeDB(db);
+  res.json({ ok: true, timer: db.timer });
+});
+app.get('/api/timer/state', (req, res) => {
+  const db = readDB();
+  const t = db.timer || {};
+  if (!t.active || !t.endTime) return res.json({ active: false });
+  const now = Date.now();
+  const msLeft = Math.max(0, t.endTime - now);
+  res.json({ active: msLeft > 0, expired: msLeft === 0, totalMinutes: t.totalMinutes, minutesLeft: Math.floor(msLeft / 60000), secondsLeft: Math.floor((msLeft % 60000) / 1000), msLeft });
+});
+app.post('/api/timer/stop', (req, res) => {
+  const db = readDB();
+  db.timer = { active: false, endTime: null, totalMinutes: 0 };
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+// ============================================================
+// КОМАНДЫ
+// ============================================================
+app.get('/api/teams', (req, res) => res.json(readDB().teams));
+app.get('/api/teams/by-token', (req, res) => {
+  const t = String(req.query.token || '').trim();
+  const team = readDB().teams.find(x => String(x.token).trim() === t);
+  if (!team) return res.status(404).json({ error: 'not found' });
+  res.json(team);
+});
+app.post('/api/teams', (req, res) => {
+  const db = readDB();
+  const caseId = Math.floor(Math.random() * 4) + 1;
+  const team = {
+    id: db.teams.length + 1,
+    name: (req.body.name || `Команда ${db.teams.length + 1}`).slice(0, 60),
+    token: Math.random().toString(36).slice(2, 10),
+    caseId, emoji: req.body.emoji || '🛡', color: req.body.color || '#157fc4',
+    createdAt: new Date().toISOString()
+  };
+  db.teams.push(team);
+  writeDB(db);
+  res.json(team);
+});
+
+// ============================================================
+// ТУР 1 / 2 / 3 / 4 (без изменений)
+// ============================================================
+app.post('/api/tour1/quiz', (req, res) => {
+  const { teamId, answers, correct, total } = req.body;
+  const db = readDB();
+  if (!db.tour1[teamId]) db.tour1[teamId] = {};
+  if (db.tour1[teamId].quiz) return res.json({ ok: true, bonus: 0 });
+  const bonus = giveSpeedBonus(db, 'tour1', teamId);
+  db.tour1[teamId].quiz = { answers, correct, total, bonus, time: new Date().toISOString() };
+  writeDB(db);
+  res.json({ ok: true, bonus });
+});
+app.post('/api/tour1/case', (req, res) => {
+  const { teamId, caseTitle, answer } = req.body;
+  const db = readDB();
+  if (!db.tour1[teamId]) db.tour1[teamId] = {};
+  db.tour1[teamId].kase = { caseTitle, answer, time: new Date().toISOString() };
+  writeDB(db);
+  res.json({ ok: true });
+});
+app.post('/api/admin/tour1/case-score', (req, res) => {
+  const db = readDB();
+  if (!db.tour1[req.body.teamId]) db.tour1[req.body.teamId] = {};
+  db.tour1[req.body.teamId].caseScore = req.body.scores;
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/tour2', (req, res) => {
+  const { teamId, answers, correct, total } = req.body;
+  const db = readDB();
+  if (db.tour2[teamId]) return res.json({ ok: true, bonus: 0 });
+  const bonus = giveSpeedBonus(db, 'tour2', teamId);
+  db.tour2[teamId] = { answers, correct, total, bonus, time: new Date().toISOString() };
+  writeDB(db);
+  res.json({ ok: true, bonus });
+});
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+  filename: (req, file, cb) => {
+    const ext = (path.extname(file.originalname) || '').toLowerCase();
+    cb(null, 'team' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + ext);
+  }
+});
+const ALLOWED_MIMES = ['image/jpeg','image/png','image/webp','image/gif','application/pdf','video/mp4','video/webm'];
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => ALLOWED_MIMES.indexOf(file.mimetype) === -1 ? cb(new Error('Недопустимый тип файла')) : cb(null, true) });
+
+app.post('/api/tour3/upload', upload.single('file'), (req, res) => {
+  const { teamId, teamName, format, formatTitle, topic, topicTitle, description } = req.body;
+  const db = readDB();
+  if (db.tour3[teamId] && db.tour3[teamId].time) return res.json({ ok: true, bonus: 0, fileUrl: db.tour3[teamId].fileUrl });
+  const bonus = giveSpeedBonus(db, 'tour3', teamId);
+  db.tour3[teamId] = { teamId, teamName, format, formatTitle, topic, topicTitle, description,
+    fileUrl: req.file ? '/uploads/' + req.file.filename : null,
+    fileName: req.file ? req.file.originalname : null,
+    fileSize: req.file ? req.file.size : 0, bonus, time: new Date().toISOString() };
+  writeDB(db);
+  res.json({ ok: true, fileUrl: db.tour3[teamId].fileUrl, fileName: db.tour3[teamId].fileName, fileSize: db.tour3[teamId].fileSize, bonus });
+});
+app.post('/api/tour3/link', (req, res) => {
+  const { teamId, teamName, format, formatTitle, topic, topicTitle, description, link } = req.body;
+  const db = readDB();
+  if (db.tour3[teamId] && db.tour3[teamId].time) return res.json({ ok: true, bonus: 0 });
+  const bonus = giveSpeedBonus(db, 'tour3', teamId);
+  db.tour3[teamId] = { teamId, teamName, format, formatTitle, topic, topicTitle, description, link, bonus, time: new Date().toISOString() };
+  writeDB(db);
+  res.json({ ok: true, bonus });
+});
+app.post('/api/admin/tour3/score', (req, res) => {
+  const db = readDB();
+  if (!db.tour3[req.body.teamId]) db.tour3[req.body.teamId] = {};
+  db.tour3[req.body.teamId].score = req.body.scores;
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/tour4/stage1', (req, res) => {
+  const db = readDB();
+  if (!db.tour4[req.body.teamId]) db.tour4[req.body.teamId] = {};
+  db.tour4[req.body.teamId].teamName = req.body.teamName;
+  db.tour4[req.body.teamId].stage1 = req.body.stage1;
+  db.tour4[req.body.teamId].time = new Date().toISOString();
+  writeDB(db);
+  res.json({ ok: true });
+});
+app.post('/api/tour4/stage2', (req, res) => {
+  const { teamId, teamName, stage2, stage2Score } = req.body;
+  const db = readDB();
+  if (!db.tour4[teamId]) db.tour4[teamId] = {};
+  db.tour4[teamId].teamName = teamName;
+  db.tour4[teamId].stage2 = stage2;
+  db.tour4[teamId].stage2Score = stage2Score;
+  const already = db.tour4[teamId].bonus !== undefined;
+  const bonus = already ? 0 : giveSpeedBonus(db, 'tour4', teamId);
+  db.tour4[teamId].bonus = db.tour4[teamId].bonus || bonus;
+  db.tour4[teamId].time = new Date().toISOString();
+  writeDB(db);
+  res.json({ ok: true, bonus });
+});
+
+// ============================================================
+// ДУЭЛИ
+// ============================================================
+app.get('/api/duel/schedule', (req, res) => {
+  const db = readDB();
+  res.json(db.duel);
+});
+
+app.post('/api/duel/schedule/add', (req, res) => {
+  const { teamA, teamB } = req.body;
+  if (!teamA || !teamB) return res.status(400).json({ error: 'teamA and teamB required' });
+  const db = readDB();
+  const id = db.duel.schedule.length + 1;
+  const questionId = ((id - 1) % DUEL_QUESTIONS.length) + 1;
+  const duel = { id, teamA, teamB, questionId, status: 'pending' };
+  db.duel.schedule.push(duel);
+  writeDB(db);
+  res.json({ ok: true, duel });
+});
+
+app.post('/api/duel/schedule/remove', (req, res) => {
+  const db = readDB();
+  const id = Number(req.body.id);
+  db.duel.schedule = db.duel.schedule.filter(d => d.id !== id);
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/duel/schedule/clear', (req, res) => {
+  const db = readDB();
+  db.duel.schedule = [];
+  db.duel.active = null;
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/duel/start', (req, res) => {
+  const db = readDB();
+  const id = Number(req.body.id);
+  const duel = db.duel.schedule.find(d => d.id === id);
+  if (!duel) return res.status(404).json({ error: 'duel not found' });
+
+  const now = Date.now();
+  db.duel.active = {
+    id: duel.id,
+    teamA: duel.teamA,
+    teamB: duel.teamB,
+    questionId: duel.questionId,
+    startedAt: now,
+    endsAt: now + 60 * 1000,
+    answers: {},
+    status: 'running'
+  };
+  writeDB(db);
+  res.json({ ok: true, active: db.duel.active });
+});
+
+app.get('/api/duel/active', (req, res) => {
+  const db = readDB();
+  const a = db.duel.active;
+  if (!a) return res.json({ active: false });
+  const now = Date.now();
+  const msLeft = Math.max(0, a.endsAt - now);
+  const isRunning = a.status === 'running' && msLeft > 0;
+
+  // Автозавершение, если время вышло
+  if (a.status === 'running' && msLeft === 0) {
+    finalizeDuel(db, a);
+    writeDB(db);
+  }
+
+  res.json({
+    active: isRunning,
+    duel: a,
+    timeLeftMs: msLeft,
+    timeLeftSec: Math.floor(msLeft / 1000),
+    question: DUEL_QUESTIONS.find(q => q.id === a.questionId) || null
+  });
+});
+
+app.post('/api/duel/answer', (req, res) => {
+  const { teamId, answer } = req.body;
+  const db = readDB();
+  const a = db.duel.active;
+  if (!a || a.status !== 'running') return res.status(400).json({ error: 'no active duel' });
+  if (Date.now() > a.endsAt) return res.status(400).json({ error: 'time over' });
+
+  let key = null;
+  if (String(a.teamA.id) === String(teamId)) key = 'A';
+  else if (String(a.teamB.id) === String(teamId)) key = 'B';
+  else return res.status(403).json({ error: 'not in duel' });
+
+  if (a.answers[key]) return res.status(400).json({ error: 'already answered' });
+
+  a.answers[key] = { teamId, answer, timeMs: Date.now() - a.startedAt, at: new Date().toISOString() };
+
+  // Если обе команды ответили — сразу завершаем
+  if (a.answers.A && a.answers.B) {
+    finalizeDuel(db, a);
+  }
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/duel/finish', (req, res) => {
+  const db = readDB();
+  const a = db.duel.active;
+  if (!a) return res.status(400).json({ error: 'no active duel' });
+  finalizeDuel(db, a);
+  writeDB(db);
+  res.json({ ok: true, result: a.result });
+});
+
+app.post('/api/duel/reset-active', (req, res) => {
+  const db = readDB();
+  db.duel.active = null;
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+function finalizeDuel(db, a) {
+  const q = DUEL_QUESTIONS.find(x => x.id === a.questionId);
+  if (!q) { a.status = 'finished'; return; }
+
+  function isCorrect(ans) {
+    if (!ans || !ans.answer) return false;
+    const sorted = ans.answer.slice().sort().join(',');
+    const corr = q.correct.slice().sort().join(',');
+    return sorted === corr;
+  }
+  const ansA = a.answers.A;
+  const ansB = a.answers.B;
+  const corA = isCorrect(ansA);
+  const corB = isCorrect(ansB);
+
+  let scoreA = 0, scoreB = 0;
+  if (corA && corB) {
+    if (ansA.timeMs <= ansB.timeMs) { scoreA = 5; scoreB = 3; }
+    else { scoreA = 3; scoreB = 5; }
+  } else if (corA) { scoreA = 5; }
+  else if (corB) { scoreB = 5; }
+
+  a.status = 'finished';
+  a.result = { scoreA, scoreB, correctA: corA, correctB: corB, answeredA: !!ansA, answeredB: !!ansB };
+
+  if (!db.duelScores) db.duelScores = {};
+  db.duelScores[a.teamA.id] = (db.duelScores[a.teamA.id] || 0) + scoreA;
+  db.duelScores[a.teamB.id] = (db.duelScores[a.teamB.id] || 0) + scoreB;
+
+  if (!db.duel.wins) db.duel.wins = {};
+  if (scoreA > scoreB) db.duel.wins[a.teamA.id] = (db.duel.wins[a.teamA.id] || 0) + 1;
+  if (scoreB > scoreA) db.duel.wins[a.teamB.id] = (db.duel.wins[a.teamB.id] || 0) + 1;
+
+  db.duel.history.push({
+    id: a.id, teamA: a.teamA, teamB: a.teamB,
+    questionId: a.questionId, answers: a.answers,
+    result: a.result, finishedAt: new Date().toISOString()
+  });
+
+  const duel = db.duel.schedule.find(d => d.id === a.id);
+  if (duel) { duel.status = 'done'; duel.result = a.result; }
+}
+
+// ============================================================
+// СВОДКА
+// ============================================================
+function computeTeamStats(t, db) {
+  const t1 = db.tour1[t.id] || {};
+  const t2 = db.tour2[t.id] || {};
+  const t3 = db.tour3[t.id] || {};
+  const t4 = db.tour4[t.id] || {};
+
+  const quiz = (t1.quiz && t1.quiz.correct) || 0;
+  const quizBonus = (t1.quiz && t1.quiz.bonus) || 0;
+  const caseScore = Array.isArray(t1.caseScore) ? t1.caseScore.reduce((a, b) => a + (Number(b) || 0), 0) : 0;
+
+  let k = 1;
+  if (t1.quiz && t1.quiz.total) {
+    const p = (quiz / 30) * 100;
+    if (p < 50) k = 1.5; else if (p <= 75) k = 1.25;
+  }
+  const quizWithK = Math.round(quiz * k * 100) / 100;
+
+  const tour2 = t2.correct || 0;
+  const tour2Bonus = t2.bonus || 0;
+  const tour3 = Array.isArray(t3.score) ? t3.score.reduce((a, b) => a + (Number(b) || 0), 0) : 0;
+  const tour3Bonus = t3.bonus || 0;
+  const t4s1 = (t4.stage1 && t4.stage1.score) || 0;
+  const t4s2 = t4.stage2Score || 0;
+  const tour4Bonus = t4.bonus || 0;
+
+  const quality = computeQualityBonus(t, db);
+  const speedBonusTotal = quizBonus + tour2Bonus + tour3Bonus + tour4Bonus;
+  const duelScore = (db.duelScores && db.duelScores[t.id]) || 0;
+  const duelWins = (db.duel && db.duel.wins && db.duel.wins[t.id]) || 0;
+
+  const t1Total = Math.round((quizWithK + caseScore + quizBonus + quality.t1Quiz + quality.t1Case) * 100) / 100;
+  const tour4 = t4s1 + t4s2 + tour4Bonus + quality.t4Objects + quality.t4Algos + quality.t4Misses;
+  const grand = Math.round((t1Total + tour2 + tour2Bonus + quality.t2 + tour3 + tour3Bonus + quality.t3 + tour4 + duelScore) * 100) / 100;
+
+  const stats = {
+    id: t.id, name: t.name, token: t.token, caseId: t.caseId,
+    emoji: t.emoji || '🛡', color: t.color || '#157fc4',
+    t1Quiz: { correct: quiz, correctK: quizWithK, coefficient: k, total: 30, bonus: quizBonus, quality: quality.t1Quiz, time: (t1.quiz && t1.quiz.time) || null },
+    t1Case: { title: (t1.kase && t1.kase.caseTitle) || null, answer: (t1.kase && t1.kase.answer) || null, time: (t1.kase && t1.kase.time) || null, score: t1.caseScore || [0,0,0], quality: quality.t1Case },
+    t1Total: Math.round(t1Total * 100) / 100,
+    t2: { correct: tour2, total: 20, bonus: tour2Bonus, quality: quality.t2, duelScore: duelScore, duelWins: duelWins, combinedTotal: tour2Total, time: t2.time || null },
+    t3: { formatTitle: t3.formatTitle, topicTitle: t3.topicTitle, description: t3.description, link: t3.link, fileUrl: t3.fileUrl, fileName: t3.fileName, time: t3.time, bonus: tour3Bonus, quality: quality.t3, score: t3.score || [0,0,0,0] },
+    t3Total: tour3 + tour3Bonus + quality.t3,
+    t4: { stage1: t4.stage1 || null, stage2: t4.stage2 || null, stage2Score: t4s2, bonus: tour4Bonus, quality: { objects: quality.t4Objects, algos: quality.t4Algos, misses: quality.t4Misses, total: quality.t4Objects + quality.t4Algos + quality.t4Misses }, time: t4.time },
+    t4Total: tour4,
+    duelScore, duelWins,
+    speedBonusTotal, qualityTotal: quality.total,
+    grand
+  };
+  stats.badges = computeBadgesFromStats(stats);
+  return stats;
+}
+
+app.get('/api/admin/all', (req, res) => {
+  const db = readDB();
+  res.json({ teams: db.teams.map(t => computeTeamStats(t, db)) });
+});
+
+app.get('/api/leaderboard', (req, res) => {
+  const db = readDB();
+  res.json({ teams: db.teams.map(t => {
+    const s = computeTeamStats(t, db);
+    return { id: s.id, name: s.name, emoji: s.emoji, color: s.color, grand: s.grand };
+  })});
+});
+
+app.post('/api/admin/reset-tour', (req, res) => {
+  const tour = String(req.body.tour || '1');
+  const db = readDB();
+  if (tour === '1') db.tour1 = {};
+  else if (tour === '2') db.tour2 = {};
+  else if (tour === '3') db.tour3 = {};
+  else if (tour === '4') db.tour4 = {};
+  if (!db.speedBonus) db.speedBonus = {};
+  db.speedBonus['tour' + tour] = [];
+  writeDB(db);
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/clear-all', (req, res) => {
+  if (req.body.confirm !== 'YES') return res.status(400).json({ error: 'confirm required' });
+  writeDB({ teams: [], tour1: {}, tour2: {}, tour3: {}, tour4: {}, timer: { active: false }, speedBonus: {}, duel: { schedule: [], active: null, history: [] }, duelScores: {} });
+  res.json({ ok: true });
+});
+
+app.use((err, req, res, next) => {
+  if (err) return res.status(400).json({ error: err.message || 'Ошибка загрузки' });
+  next();
+});
+
+app.listen(3000, () => {
+  console.log('Сервер: http://localhost:3000');
+  console.log('Дуэли: http://localhost:3000/duel.html');
+  console.log('Колесо: http://localhost:3000/wheel.html');
+});

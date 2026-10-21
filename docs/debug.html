@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Debug — разметка координат</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 20px; }
+    h1 { margin: 0 0 12px; font-size: 20px; color: #0f5d92; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    .card { background: #fff; border: 1px solid #d9dde3; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .tabs button { padding: 8px 14px; border: 1px solid #d9dde3; background: #fff; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 14px; }
+    .tabs button.active { background: #157fc4; color: #fff; border-color: #157fc4; }
+    .img-wrap { position: relative; display: inline-block; max-width: 100%; cursor: crosshair; }
+    .img-wrap img { display: block; max-width: 100%; height: auto; border-radius: 8px; user-select: none; -webkit-user-drag: none; }
+    .marker {
+      position: absolute;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(200, 16, 46, 0.7);
+      border: 2px solid #fff;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      font-size: 11px; color: #fff; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .marker::after { content: attr(data-n); }
+    .coords { margin-top: 12px; font-family: monospace; font-size: 13px; background: #eef2f6; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+    .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .btns button { padding: 8px 14px; border: none; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 14px; }
+    .btn-primary { background: #157fc4; color: #fff; }
+    .btn-danger { background: #fdecec; color: #c62828; border: 1px solid #f4c5c5; }
+    .btn-secondary { background: #eef1f5; color: #333; border: 1px solid #d9dde3; }
+    .hint { color: #5a6470; font-size: 13px; margin: 0 0 12px; }
+    .markers-list { font-size: 13px; color: #333; }
+    .markers-list li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Debug — разметка координат объектов</h1>
+  <p class="hint">Кликайте по картинке — ставятся маркеры. Внизу список координат. Переключайтесь между картинками через кнопки. В конце — «Скопировать JSON».</p>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="card">
+    <div class="img-wrap" id="imgWrap">
+      <img id="mainImg" src="" alt="">
+    </div>
+    <div class="btns">
+      <button class="btn-secondary" onclick="undoLast()">↶ Удалить последний</button>
+      <button class="btn-danger" onclick="clearAll()">Очистить всё</button>
+      <button class="btn-primary" onclick="copyJSON()">📋 Скопировать JSON для этой картинки</button>
+    </div>
+    <div class="coords" id="coords">Маркеров: 0</div>
+    <ul class="markers-list" id="markersList"></ul>
+  </div>
+
+  <div class="card">
+    <b>Весь результат всех картинок:</b>
+    <div class="coords" id="allJSON">—</div>
+    <div class="btns">
+      <button class="btn-primary" onclick="copyAllJSON()">📋 Скопировать весь JSON</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var images = [
+    { id: 'find-1', name: '1. Холл с рюкзаком', file: 'img/find-1.jpg' },
+    { id: 'find-2', name: '2. Аудитория с коробкой', file: 'img/find-2.jpg' },
+    { id: 'find-3', name: '3. Кофейня с телефоном', file: 'img/find-3.jpg' },
+    { id: 'find-4', name: '4. Вход в вуз', file: 'img/find-4.jpg' },
+    { id: 'find-5', name: '5. Вокзал', file: 'img/find-5.jpg' },
+    { id: 'find-6', name: '6. Кабинет права', file: 'img/find-6.jpg' }
+  ];
+
+  var current = images[0].id;
+  var allData = {}; // { imageId: [ {x, y}, ... ] }
+  images.forEach(function(img) {
+    try { allData[img.id] = JSON.parse(localStorage.getItem('debug_' + img.id) || '[]'); }
+    catch (e) { allData[img.id] = []; }
+  });
+
+  var tabsEl = document.getElementById('tabs');
+  images.forEach(function(img) {
+    var b = document.createElement('button');
+    b.textContent = img.name;
+    b.dataset.id = img.id;
+    b.onclick = function() { switchImg(img.id); };
+    tabsEl.appendChild(b);
+  });
+
+  function switchImg(id) {
+    current = id;
+    var img = images.find(function(x) { return x.id === id; });
+    document.getElementById('mainImg').src = img.file;
+    document.querySelectorAll('#tabs button').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.id === id);
+    });
+    renderMarkers();
+  }
+
+  document.getElementById('mainImg').addEventListener('click', function(e) {
+    var rect = this.getBoundingClientRect();
+    var x = ((e.clientX - rect.left) / rect.width) * 100;
+    var y = ((e.clientY - rect.top) / rect.height) * 100;
+    allData[current].push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
+    saveCurrent();
+    renderMarkers();
+  });
+
+  function undoLast() {
+    allData[current].pop();
+    saveCurrent();
+    renderMarkers();
+  }
+
+  function clearAll() {
+    if (!confirm('Очистить все маркеры на этой картинке?')) return;
+    allData[current] = [];
+    saveCurrent();
+    renderMarkers();
+  }
+
+  function saveCurrent() {
+    localStorage.setItem('debug_' + current, JSON.stringify(allData[current]));
+    renderAllJSON();
+  }
+
+  function renderMarkers() {
+    // Удаляем старые
+    document.querySelectorAll('.marker').forEach(function(m) { m.remove(); });
+    var wrap = document.getElementById('imgWrap');
+    var arr = allData[current] || [];
+    arr.forEach(function(m, i) {
+      var el = document.createElement('div');
+      el.className = 'marker';
+      el.style.left = m.x + '%';
+      el.style.top = m.y + '%';
+      el.setAttribute('data-n', i + 1);
+      wrap.appendChild(el);
+    });
+
+    document.getElementById('coords').textContent = 'Маркеров: ' + arr.length;
+    var list = document.getElementById('markersList');
+    list.innerHTML = '';
+    arr.forEach(function(m, i) {
+      var li = document.createElement('li');
+      li.textContent = '#' + (i + 1) + ': x = ' + m.x + '%, y = ' + m.y + '%';
+      list.appendChild(li);
+    });
+
+    renderAllJSON();
+  }
+
+  function renderAllJSON() {
+    var out = {};
+    images.forEach(function(img) {
+      if (allData[img.id] && allData[img.id].length) {
+        out[img.id] = allData[img.id];
+      }
+    });
+    document.getElementById('allJSON').textContent = JSON.stringify(out, null, 2);
+  }
+
+  function copyJSON() {
+    var text = JSON.stringify({ [current]: allData[current] }, null, 2);
+    copyText(text, 'JSON для ' + current + ' скопирован');
+  }
+
+  function copyAllJSON() {
+    var out = {};
+    images.forEach(function(img) {
+      if (allData[img.id] && allData[img.id].length) out[img.id] = allData[img.id];
+    });
+    copyText(JSON.stringify(out, null, 2), 'Весь JSON скопирован');
+  }
+
+  function copyText(text, okMsg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() { alert(okMsg); }, function() { fallback(text, okMsg); });
+    } else { fallback(text, okMsg); }
+  }
+  function fallback(text, okMsg) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); alert(okMsg); } catch (e) { prompt('Скопируйте:', text); }
+    document.body.removeChild(ta);
+  }
+
+  switchImg(current);
+</script>
+
+</body>
+</html>

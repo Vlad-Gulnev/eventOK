@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Админка чемпионата</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.login-wrap{max-width:420px;margin:80px auto;padding:32px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);text-align:center}
+.login-wrap h1{font-size:22px;margin-bottom:8px}
+.login-wrap p{color:var(--muted);font-size:14px;margin-bottom:20px}
+.login-wrap input{width:100%;padding:12px 14px;font-size:16px;border:1px solid var(--border);border-radius:var(--radius);box-sizing:border-box;margin-bottom:12px}
+.login-err{color:var(--err);font-size:14px;margin-top:10px}
+.copy-btn{padding:4px 10px;font-size:13px;background:#eef1f5;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-family:inherit}
+.copy-btn:hover{background:#e2e7ee}
+.case-answer{background:#f7f9fc;border-left:4px solid var(--primary);padding:12px 16px;border-radius:6px;margin:8px 0;white-space:pre-wrap;font-size:15px}
+.case-block{border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:12px 0;background:#fff}
+.case-block h4{margin:0 0 8px;color:var(--primary-dark)}
+.score-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.score-row input{width:60px;margin:0;padding:6px}
+.criteria-list{font-size:13px;color:var(--muted);margin:6px 0 12px}
+.tab-bar{display:flex;gap:6px;margin:12px 0 16px;flex-wrap:wrap}
+.tab-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-family:inherit;font-size:14px}
+.tab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.work-preview{background:#f7f9fc;padding:16px;border-radius:var(--radius);border:1px solid var(--border);text-align:center;margin-bottom:14px}
+.work-preview img{max-width:100%;max-height:500px;border-radius:8px}
+.work-preview video{max-width:100%;max-height:500px;border-radius:8px}
+.work-preview iframe{width:100%;height:500px;border-radius:8px;border:1px solid var(--border)}
+.work-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.work-header h4{margin:0;font-size:18px}
+.work-meta{font-size:13px;color:var(--muted)}
+.nav-buttons{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.score-live{font-size:15px;font-weight:700;color:var(--primary-dark)}
+.tour4-block{border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:12px 0;background:#fff}
+.tour4-block h4{margin:0 0 10px;color:var(--primary-dark);font-size:16px}
+.stat-line{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border);font-size:14px}
+.stat-line:last-child{border-bottom:none}
+.stat-line b{color:var(--primary-dark)}
+.team-avatar{font-size:22px;margin-right:6px}
+.color-badge{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.badges-inline{display:block;margin-top:4px;font-size:16px;letter-spacing:2px}
+.big-actions{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 20px}
+.btn-fanfare{background:linear-gradient(90deg,#c8102e,#b58b2a);color:#fff;font-weight:800;padding:12px 24px;border:none;border-radius:10px;cursor:pointer;font-size:15px;font-family:inherit}
+.btn-fanfare:hover{opacity:0.9}
+.timer-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:16px;background:#f7f9fc;border-radius:var(--radius);margin:12px 0;border:1px solid var(--border)}
+.timer-controls .label{font-weight:700;color:var(--primary-dark);margin-right:8px}
+.btn-timer{background:var(--primary);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:700}
+.btn-timer:hover{background:var(--primary-dark)}
+.btn-timer-stop{background:#fdecec;color:var(--err);border:1px solid #f4c5c5}
+.btn-timer-stop:hover{background:#fbdcdc}
+.timer-status{font-size:15px;font-weight:700;margin-left:auto;color:var(--primary-dark)}
+.timer-status.active{color:#2e7d32}
+.timer-status.expired{color:#c62828;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+.badge-bonus{display:inline-block;padding:2px 8px;font-size:12px;font-weight:700;border-radius:999px;background:#fff3cd;color:#856404;margin-left:6px}
+.badge-bonus.gold{background:#ffe082;color:#664d03}
+.badge-quality{display:inline-block;padding:2px 8px;font-size:12px;font-weight:700;border-radius:999px;background:#e6f4ea;color:#1f6d2f;margin-left:4px}
+.score-btn-group{display:flex;align-items:center;gap:4px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:4px}
+.score-btn-group span{font-size:13px;font-weight:700;color:var(--muted);margin-right:4px;padding-left:4px}
+.score-btn{width:32px;height:32px;border:1px solid var(--border);background:#f7f9fc;border-radius:6px;cursor:pointer;font-size:15px;font-weight:700;color:var(--text);font-family:inherit;transition:all 0.15s}
+.score-btn:hover{background:#e2e7ee}
+.score-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 2px 4px rgba(21,127,196,0.3)}
+.badges-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;padding:40px;overflow-y:auto}
+.badges-modal{max-width:900px;margin:0 auto;background:#fff;border-radius:16px;padding:32px}
+.badges-modal h2{margin:0 0 20px;color:#0f5d92;font-size:26px}
+.badges-team{border:1px solid #d9dde3;border-radius:10px;padding:16px;margin:12px 0}
+.badges-team-title{font-size:20px;font-weight:700;margin-bottom:10px}
+.badges-team-title .emoji{font-size:28px}
+.badge-pill{display:inline-block;margin:4px 8px 4px 0;padding:6px 12px;background:#e6f4ea;border-radius:999px;font-size:14px}
+.badge-pill .b-icon{font-size:18px}
+.badge-pill .b-desc{color:#5a6470;font-size:12px}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-wrap">
+  <h1>Вход в админку</h1>
+  <p>Введите пароль: admin</p>
+  <input type="password" id="passInput" placeholder="Пароль" autofocus>
+  <button class="btn btn-primary" onclick="tryLogin()" style="width:100%;">Войти</button>
+  <div class="login-err" id="loginErr"></div>
+</div>
+
+<div id="adminApp" style="display:none;">
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Админка чемпионата</h1>
+  </div>
+</header>
+
+<main class="container wide">
+  <div class="card">
+    <p style="color:var(--muted);font-size:14px;">Данные на сервере. Обновление каждые 5 секунд.</p>
+    <div class="big-actions">
+      <button class="btn btn-primary" onclick="openLeaderboard()" style="font-size:16px;padding:12px 24px;font-weight:700;">📺 Открыть лидерборд</button>
+      <button class="btn btn-primary" onclick="showAllBadges()" style="font-size:16px;padding:12px 24px;font-weight:700;background:#b58b2a;">🏅 Все достижения</button>
+      <button class="btn-fanfare" onclick="playFanfare()">🎺 Фанфара</button>
+      <button class="btn-fanfare" onclick="playTruckHorn()" style="background:linear-gradient(90deg,#5d4037,#c8102e);">🚛 Гудок камаза</button>
+    </div>
+
+    <div class="timer-controls">
+      <span class="label">⏱ Таймер тура:</span>
+      <button class="btn-timer" onclick="startTimer(10)">10 мин</button>
+      <button class="btn-timer" onclick="startTimer(15)">15 мин</button>
+      <button class="btn-timer" onclick="startTimer(20)">20 мин</button>
+      <button class="btn-timer btn-timer-stop" onclick="stopTimer()">⏹ Стоп</button>
+      <span class="timer-status" id="timerStatus">— не активен —</span>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="load()">Обновить</button>
+      <button class="btn btn-secondary" onclick="exportCSV()">Экспорт CSV</button>
+      <button class="btn btn-secondary" onclick="resetTour()">Сбросить тур</button>
+      <button class="btn btn-danger" onclick="clearAll()">Полная очистка</button>
+      <button class="btn btn-secondary" onclick="logout()">Выйти</button>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="tab-teams" onclick="switchTab('tab-teams', this)">Команды</button>
+    <button class="tab-btn" data-tab="tab-tour1" onclick="switchTab('tab-tour1', this)">Тур 1</button>
+    <button class="tab-btn" data-tab="tab-tour2" onclick="switchTab('tab-tour2', this)">Тур 2</button>
+    <button class="tab-btn" data-tab="tab-duels" onclick="switchTab('tab-duels', this)">⚔️ Блиц</button>
+    <button class="tab-btn" data-tab="tab-tour3" onclick="switchTab('tab-tour3', this)">Тур 3</button>
+    <button class="tab-btn" data-tab="tab-tour4" onclick="switchTab('tab-tour4', this)">Тур 4</button>
+    <button class="tab-btn" data-tab="tab-video" onclick="switchTab('tab-video', this)">🎬 Видео</button>
+    <button class="tab-btn" data-tab="tab-summary" onclick="switchTab('tab-summary', this)">Сводка</button>
+  </div>
+
+  <div class="tab-pane active" id="tab-teams">
+    <div class="card">
+      <h2>Команды и ссылки для входа</h2>
+      <table class="table" id="teamsTbl">
+        <thead><tr><th>#</th><th>Команда</th><th>Токен</th><th>Ссылка</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-tour1">
+    <div class="card">
+      <h2>Тур 1. Квиз <small style="color:var(--muted);font-weight:400;font-size:14px;">(коэф. 1.25 для слабых + бонусы)</small></h2>
+      <table class="table" id="tour1QuizTbl">
+        <thead><tr><th>#</th><th>Команда / Игроки</th><th>Ср. балл</th><th>Коэф.</th><th>С коэф.</th><th>Спид</th><th>Идеал</th><th>Время</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Тур 1. Ситуационные кейсы</h2>
+      <div id="casesBox">Загрузка...</div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-tour2">
+    <div class="card">
+      <h2>Тур 2. Психологический иммунитет</h2>
+      <table class="table" id="tour2Tbl">
+        <thead><tr><th>#</th><th>Команда / Игроки</th><th>Квиз</th><th>⚔️ Блиц</th><th>Итого</th><th>Спид</th><th>Идеал</th><th>Время</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-duels">
+    <div class="card">
+      <h2>⚔️ Управление Блицем</h2>
+      <iframe src="duel-admin.html" style="width:100%; height:800px; border:1px solid var(--border); border-radius:8px;"></iframe>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-tour3">
+    <div class="card">
+      <h2>Тур 3. Контент-баттл — оценка работ</h2>
+      <label for="workSelect"><b>Команда:</b></label>
+      <select id="workSelect" onchange="showWork()" style="max-width:400px;margin-bottom:12px;"></select>
+      <div id="workPreview">Загрузка...</div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-tour4">
+    <div class="card">
+      <h2>Тур 4. Найди опасность</h2>
+      <label for="tour4Select"><b>Команда:</b></label>
+      <select id="tour4Select" onchange="showTour4()" style="max-width:400px;margin-bottom:12px;"></select>
+      <div id="tour4Preview">Загрузка...</div>
+    </div>
+  </div>
+
+  <!-- НОВАЯ ВКЛАДКА ВИДЕО -->
+  <div class="tab-pane" id="tab-video">
+    <div class="card">
+      <h2>🎬 Финальный видео-этап</h2>
+      <div id="videoAdminBox"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-summary">
+    <div class="card">
+      <h2>Сводная таблица</h2>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px;">🎯 Спид — бонус за скорость. 🌟 Качество — бонусы за идеальные результаты. 🏅 Бейджи — под именем команды.</p>
+      <table class="table" id="tbl">
+        <thead><tr>
+          <th>#</th><th>Команда</th>
+          <th>Т1 квиз</th><th>Т1 кейс</th><th>Т1 итого</th>
+          <th>Т2</th><th>Т3</th><th>Т4</th><th>🎬 Видео</th>
+          <th>🎯 Спид</th><th>🌟 Качество</th><th>Общий</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+</div>
+
+<script>
+var SALT = 'yargu-centre-2026-';
+function simpleHash(str){var h=5381;for(var i=0;i<str.length;i++){h=((h<<5)+h)+str.charCodeAt(i);h=h&h;}return(h>>>0).toString(16);}
+var PASS_HASH = simpleHash(SALT + 'KBU3');
+
+function tryLogin(){
+  var input = document.getElementById('passInput').value;
+  if (simpleHash(SALT + input) === PASS_HASH || input === 'admin') { 
+    sessionStorage.setItem('admin_ok','1'); 
+    showAdmin(); 
+  } else { 
+    document.getElementById('loginErr').textContent = 'Неверный пароль'; 
+  }
+}
+function logout(){ sessionStorage.removeItem('admin_ok'); location.reload(); }
+function showAdmin(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminApp').style.display = '';
+  load();
+  updateTimerStatus();
+  setInterval(load, 5000);
+  setInterval(updateTimerStatus, 1000);
+}
+if (sessionStorage.getItem('admin_ok') === '1') { showAdmin(); }
+else { document.getElementById('passInput').addEventListener('keydown', function(e){ if(e.key==='Enter') tryLogin(); }); }
+
+function switchTab(tabId, btn){
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById(tabId).classList.add('active');
+  btn.classList.add('active');
+  if (tabId === 'tab-video') loadVideoAdmin();
+}
+
+var CASES_META = { 1:'Переписка в мессенджере', 2:'Пост в соцсети', 3:'Подозрительный предмет', 4:'Лёгкий заработок' };
+var SIM_TITLES = { tg:'Странное сообщение', bag:'Бесхозная сумка', friend:'Друг втягивается' };
+var allData = null;
+var videoData = null;
+
+function baseUrl(){ var loc=window.location; return loc.origin + loc.pathname.replace(/\/[^\/]*$/,'/'); }
+
+function load(){
+  fetch('/api/admin/all')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      allData = data;
+      renderTeams();
+      renderTour1Quiz();
+      renderCases();
+      renderTour2();
+      fillTour3Select();
+      fillTour4Select();
+      renderSummary();
+      if (document.getElementById('tab-video').classList.contains('active')) {
+        loadVideoAdmin();
+      }
+    })
+    .catch(function(err){ console.error(err); });
+}
+
+function renderTeams(){
+  var tbody = document.querySelector('#teamsTbl tbody');
+  tbody.innerHTML = '';
+  if (!allData.teams.length) { tbody.innerHTML='<tr><td colspan="5">Пока нет команд.</td></tr>'; return; }
+  var base = baseUrl();
+  allData.teams.forEach(function(t){
+    var link = base + 'menu.html?token=' + t.token + '&team=' + t.id;
+    var badges = (t.badges && t.badges.length) ? '<span class="badges-inline">' + t.badges.map(function(b){return b.icon;}).join('') + '</span>' : '';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + t.id + '</td>' +
+      '<td><span class="team-avatar">' + t.emoji + '</span><span class="color-badge" style="background:' + t.color + ';"></span><b>' + t.name + '</b>' + badges + '</td>' +
+      '<td><code>' + t.token + '</code></td>' +
+      '<td><a href="' + link + '" target="_blank" style="font-size:13px;word-break:break-all;">' + link + '</a></td>' +
+      '<td style="display:flex;gap:6px;"><button class="copy-btn" onclick="copyLink(\'' + link + '\')">Копировать</button><button class="btn btn-danger" style="padding:4px 8px;font-size:12px;" onclick="deleteTeam(' + t.id + ', \'' + t.name + '\')">Удалить</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function copyLink(text){
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function(){ alert('Скопировано'); }, function(){ fallbackCopy(text); });
+  } else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); alert('Скопировано'); }catch(e){ prompt('Скопируйте:', text); }
+  document.body.removeChild(ta);
+}
+
+function speedBadge(bonus){ if (!bonus) return '—'; return '<span class="badge-bonus gold">🎯 +' + bonus + '</span>'; }
+function qualityBadge(bonus){ if (!bonus) return '—'; return '<span class="badge-quality">🌟 +' + bonus + '</span>'; }
+
+function renderTour1Quiz(){
+  var tbody = document.querySelector('#tour1QuizTbl tbody');
+  tbody.innerHTML = '';
+  if (!allData.teams.length) { tbody.innerHTML='<tr><td colspan="8">Нет команд.</td></tr>'; return; }
+  
+  var rows = allData.teams.map(function(t){ return {
+    name: t.name, emoji: t.emoji, color: t.color,
+    submissions: t.t1Quiz.submissions || [],
+    raw: t.t1Quiz.correct,
+    k: t.t1Quiz.coefficient, kd: t.t1Quiz.correctK,
+    bonus: t.t1Quiz.bonus, quality: t.t1Quiz.quality,
+    time: t.t1Quiz.time, done: !!t.t1Quiz.time
+  }; });
+  
+  rows.sort(function(a,b){ return b.kd - a.kd; });
+  
+  rows.forEach(function(r,i){
+    var tr = document.createElement('tr');
+    if (i===0 && rows.length>1 && r.kd>0) tr.className='leader';
+    
+    var playersHtml = '';
+    if (r.submissions.length > 0) {
+      playersHtml = '<div style="font-size:11px; color:#5a6470; margin-top:4px; line-height:1.2;">' + 
+        r.submissions.map(function(s){ return s.name + ': ' + s.correct; }).join('<br>') + 
+        '</div>';
+    }
+
+    var kLabel = r.k === 1 ? '<span class="badge">×1.0</span>' :
+                 '<span class="badge ok">×1.25</span>';
+
+    tr.innerHTML = '<td>'+(i+1)+'</td>' +
+      '<td><span class="team-avatar">'+r.emoji+'</span><span class="color-badge" style="background:'+r.color+';"></span>'+r.name + playersHtml + '</td>' +
+      '<td>'+(r.done ? '<b>'+r.raw+'</b> <span style="font-size:11px;color:#5a6470;">(ср.)</span>' : '—')+'</td>' +
+      '<td>'+(r.done ? kLabel : '—')+'</td>' +
+      '<td><b>'+(r.done ? r.kd : '—')+'</b></td>' +
+      '<td>'+(r.done ? speedBadge(r.bonus) : '—')+'</td>' +
+      '<td>'+(r.done ? qualityBadge(r.quality) : '—')+'</td>' +
+      '<td style="font-size:13px;color:#666;">'+(r.time ? new Date(r.time).toLocaleString('ru-RU') : '')+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function getScoreBtnsHTML(id, max, current, extraOnclick) {
+  var html = '<div class="score-btn-group" id="grp_'+id+'">';
+  for(var i=0; i<=max; i++) {
+    var isActive = (current == i) ? ' active' : '';
+    html += '<button type="button" class="score-btn'+isActive+'" onclick="setScore(\''+id+'\', '+i+', '+max+', \''+(extraOnclick||'')+'\')">'+i+'</button>';
+  }
+  html += '<input type="hidden" id="'+id+'" value="'+current+'"></div>';
+  return html;
+}
+
+function setScore(id, val, max, extraOnclick) {
+  document.getElementById(id).value = val;
+  var grp = document.getElementById('grp_'+id);
+  var btns = grp.querySelectorAll('.score-btn');
+  btns.forEach(function(b, i) {
+    b.classList.toggle('active', i === val);
+  });
+  if (extraOnclick) { eval(extraOnclick); }
+}
+
+function renderCases(){
+  var box = document.getElementById('casesBox');
+  box.innerHTML = '';
+  if (!allData.teams.length) { box.innerHTML='<p>Нет команд.</p>'; return; }
+  allData.teams.forEach(function(t){
+    var parts = t.t1Case.score || [0,0,0];
+    var subs = t.t1Case.submissions || [];
+    var html = '<div class="case-block">' +
+      '<h4>' + t.emoji + ' ' + t.name + (t.t1Case.quality ? ' ' + qualityBadge(t.t1Case.quality) : '') + '</h4>' +
+      '<p><b>Кейс:</b> ' + (t.t1Case.title || CASES_META[t.caseId] || '—') + '</p>';
+    
+    if (subs.length > 0) {
+      subs.forEach(function(s) {
+        html += '<div class="case-answer"><b>' + s.name + ':</b><br>' + s.answer.replace(/</g,'&lt;') + '</div>';
+      });
+    } else {
+      html += '<p style="color:var(--muted);">Команда ещё не отправила ответ.</p>';
+    }
+
+    html += '<p class="criteria-list"><b>Критерии:</b> 1) Замечена опасность 0–4; 2) Названы признаки 0–4; 3) Правильные действия 0–2</p>' +
+      '<div class="score-row">' +
+      getScoreBtnsHTML('c1_'+t.id, 4, parts[0]||0) +
+      getScoreBtnsHTML('c2_'+t.id, 4, parts[1]||0) +
+      getScoreBtnsHTML('c3_'+t.id, 2, parts[2]||0) +
+      '<button class="btn btn-primary" onclick="saveCaseScore('+t.id+')" style="margin-left:12px;">Сохранить</button>' +
+      '<span id="saved_'+t.id+'" style="color:var(--ok);font-weight:600;"></span>' +
+      '</div></div>';
+    box.insertAdjacentHTML('beforeend', html);
+  });
+}
+
+function saveCaseScore(teamId){
+  var c1 = Number(document.getElementById('c1_'+teamId).value)||0;
+  var c2 = Number(document.getElementById('c2_'+teamId).value)||0;
+  var c3 = Number(document.getElementById('c3_'+teamId).value)||0;
+  fetch('/api/admin/tour1/case-score', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ teamId: teamId, scores: [c1, c2, c3] })
+  }).then(function(){
+    var lbl = document.getElementById('saved_'+teamId);
+    lbl.textContent = 'Сохранено: ' + (c1+c2+c3) + ' / 10';
+    setTimeout(function(){ lbl.textContent=''; }, 3000);
+    load();
+  });
+}
+
+function renderTour2(){
+  var tbody = document.querySelector('#tour2Tbl tbody');
+  tbody.innerHTML = '';
+  if (!allData.teams.length) { tbody.innerHTML='<tr><td colspan="8">Нет команд.</td></tr>'; return; }
+  var rows = allData.teams.map(function(t){ return {
+    name: t.name, emoji: t.emoji, color: t.color,
+    score: t.t2.correct,
+    submissions: t.t2.submissions || [],
+    duelScore: t.t2.duelScore || 0,
+    duelWins: t.t2.duelWins || 0,
+    combinedTotal: t.t2.combinedTotal || t.t2.correct,
+    bonus: t.t2.bonus,
+    quality: t.t2.quality,
+    time: t.t2.time,
+    done: !!t.t2.time
+  }; });
+  rows.sort(function(a,b){ return b.combinedTotal - a.combinedTotal; });
+  
+  rows.forEach(function(r,i){
+    var tr = document.createElement('tr');
+    if (i===0 && rows.length>1 && r.combinedTotal>0) tr.className='leader';
+
+    var playersHtml = '';
+    if (r.submissions.length > 0) {
+      playersHtml = '<div style="font-size:11px; color:#5a6470; margin-top:4px; line-height:1.2;">' + 
+        r.submissions.map(function(s){ return s.name + ': ' + s.correct; }).join('<br>') + 
+        '</div>';
+    }
+
+    var duelCell = r.duelScore > 0
+      ? '<span class="badge-bonus gold">⚔️ +' + r.duelScore + '</span>' + (r.duelWins > 0 ? ' <span style="font-size:11px;color:#5a6470;">(' + r.duelWins + ' поб.)</span>' : '')
+      : '—';
+
+    var totalCell = r.done || r.duelScore > 0
+      ? '<b>' + Math.round(r.combinedTotal * 100) / 100 + '</b>'
+      : '—';
+
+    tr.innerHTML = '<td>'+(i+1)+'</td>' +
+      '<td><span class="team-avatar">'+r.emoji+'</span><span class="color-badge" style="background:'+r.color+';"></span>'+r.name + playersHtml + '</td>' +
+      '<td>'+(r.done ? '<span class="badge ok">'+r.score+' / 38</span>' : '<span class="badge">не прошёл</span>')+'</td>' +
+      '<td>'+duelCell+'</td>' +
+      '<td>'+totalCell+'</td>' +
+      '<td>'+(r.done ? speedBadge(r.bonus) : '—')+'</td>' +
+      '<td>'+(r.done ? qualityBadge(r.quality) : '—')+'</td>' +
+      '<td style="font-size:13px;color:#666;">'+(r.time ? new Date(r.time).toLocaleString('ru-RU') : '')+'</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function fillTour3Select(){
+  var sel = document.getElementById('workSelect');
+  var prev = sel.value;
+  sel.innerHTML = '';
+  if (!allData.teams.length) { var o=document.createElement('option'); o.textContent='— нет команд —'; sel.appendChild(o); return; }
+  allData.teams.forEach(function(t){
+    var has = t.t3 && t.t3.time;
+    var opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.emoji + ' ' + t.name + (has ? ' ✓' : ' — нет работы');
+    sel.appendChild(opt);
+  });
+  if (prev) sel.value = prev;
+}
+
+function showWork(){
+  var teamId = document.getElementById('workSelect').value;
+  var box = document.getElementById('workPreview');
+  if (!teamId) { box.innerHTML='<p>Нет команд.</p>'; return; }
+  var t = allData.teams.find(function(x){ return String(x.id) === String(teamId); });
+  if (!t || !t.t3 || !t.t3.time) { box.innerHTML='<div class="case-block"><p>Команда ещё не загрузила работу.</p></div>'; return; }
+  var scores = t.t3.score || [0,0,0,0];
+  var previewHtml = '';
+  if (t.t3.fileUrls && t.t3.fileUrls.length > 0) {
+    previewHtml = '<ul>';
+    t.t3.fileUrls.forEach(function(url, i) {
+      previewHtml += '<li><a href="' + url + '" target="_blank">' + t.t3.fileNames[i] + '</a></li>';
+    });
+    previewHtml += '</ul>';
+  } else if (t.t3.link) {
+    previewHtml = '<p><a href="' + t.t3.link + '" target="_blank">' + t.t3.link + '</a></p>';
+  }
+  var sum = scores.reduce(function(a,b){ return a + (Number(b)||0); }, 0);
+  box.innerHTML =
+    '<div class="case-block">' +
+      '<div class="work-header"><div>' +
+        '<h4>' + t.emoji + ' ' + t.name + speedBadge(t.t3.bonus) + qualityBadge(t.t3.quality) + '</h4>' +
+        '<p class="work-meta">Формат: <b>' + (t.t3.formatTitle||'—') + '</b> · Тема: <b>' + (t.t3.topicTitle||'—') + '</b></p>' +
+      '</div><div class="score-live" id="scoreLive_'+teamId+'">Итог: '+sum+' / 20</div></div>' +
+      '<p><b>Описание:</b></p><div class="case-answer">' + ((t.t3.description||'').replace(/</g,'&lt;')) + '</div>' +
+      '<p style="margin-top:14px;"><b>Работа:</b></p><div class="work-preview">' + previewHtml + '</div>' +
+      '<p class="criteria-list"><b>Критерии:</b> 1) Понятность 0–5; 2) Точность 0–5; 3) Оригинальность 0–5; 4) Соответствие 0–5</p>' +
+      '<div class="score-row">' +
+        getScoreBtnsHTML('w1_'+teamId, 5, scores[0]||0, 'updateWorkSum('+teamId+')') +
+        getScoreBtnsHTML('w2_'+teamId, 5, scores[1]||0, 'updateWorkSum('+teamId+')') +
+        getScoreBtnsHTML('w3_'+teamId, 5, scores[2]||0, 'updateWorkSum('+teamId+')') +
+        getScoreBtnsHTML('w4_'+teamId, 5, scores[3]||0, 'updateWorkSum('+teamId+')') +
+      '</div>' +
+      '<div class="nav-buttons">' +
+        '<button class="btn btn-primary" onclick="saveWorkScore('+teamId+')">Сохранить оценку</button>' +
+        '<button class="btn btn-secondary" onclick="nextWork()">Следующая →</button>' +
+        '<span id="savedWork_'+teamId+'" style="color:var(--ok);font-weight:600;"></span>' +
+      '</div>' +
+    '</div>';
+}
+
+function updateWorkSum(teamId){
+  var c1=Number(document.getElementById('w1_'+teamId).value)||0;
+  var c2=Number(document.getElementById('w2_'+teamId).value)||0;
+  var c3=Number(document.getElementById('w3_'+teamId).value)||0;
+  var c4=Number(document.getElementById('w4_'+teamId).value)||0;
+  var el=document.getElementById('scoreLive_'+teamId);
+  if (el) el.textContent='Итог: '+(c1+c2+c3+c4)+' / 20';
+}
+
+function saveWorkScore(teamId){
+  var c1=Number(document.getElementById('w1_'+teamId).value)||0;
+  var c2=Number(document.getElementById('w2_'+teamId).value)||0;
+  var c3=Number(document.getElementById('w3_'+teamId).value)||0;
+  var c4=Number(document.getElementById('w4_'+teamId).value)||0;
+  fetch('/api/admin/tour3/score',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ teamId: teamId, scores: [c1,c2,c3,c4] })
+  }).then(function(){
+    var lbl=document.getElementById('savedWork_'+teamId);
+    if(lbl){lbl.textContent='Сохранено: '+(c1+c2+c3+c4)+' / 20';setTimeout(function(){lbl.textContent='';},3000);}
+    load();
+  });
+}
+
+function nextWork(){
+  var sel=document.getElementById('workSelect');
+  if (sel.selectedIndex < sel.options.length-1) { sel.selectedIndex+=1; showWork(); }
+  else alert('Последняя команда.');
+}
+
+function fillTour4Select(){
+  var sel = document.getElementById('tour4Select');
+  var prev = sel.value;
+  sel.innerHTML = '';
+  if (!allData.teams.length) { var o=document.createElement('option'); o.textContent='— нет команд —'; sel.appendChild(o); return; }
+  allData.teams.forEach(function(t){
+    var has = t.t4 && t.t4.stage1;
+    var opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.emoji + ' ' + t.name + (has ? ' ✓' : ' — не играл');
+    sel.appendChild(opt);
+  });
+  if (prev) sel.value = prev;
+}
+
+function showTour4(){
+  var teamId = document.getElementById('tour4Select').value;
+  var box = document.getElementById('tour4Preview');
+  if (!teamId) { box.innerHTML='<p>Нет команд.</p>'; return; }
+  var t = allData.teams.find(function(x){ return String(x.id) === String(teamId); });
+  if (!t || !t.t4 || !t.t4.stage1) { box.innerHTML='<div class="tour4-block"><p>Команда ещё не играла в Тур 4.</p></div>'; return; }
+  
+  var s1 = t.t4.stage1 || {};
+  var s2 = t.t4.stage2 || {};
+  var manual = t.t4.manualScore || 0;
+  var autoPts = t.t4.autoPoints || 0;
+  
+  var levelResults = s1.levelResults || [];
+  var foundCount = levelResults.filter(l => l.found).length;
+  var algoCount = levelResults.filter(l => l.algoBuilt).length;
+
+  var html = '<div class="tour4-block"><h4>' + t.emoji + ' ' + t.name + qualityBadge(t.t4.quality.total) + '</h4>' +
+    '<div class="stat-line"><span>Найдено предметов</span><b>' + foundCount + ' / 12</b> <span class="badge-quality">+ ' + foundCount + ' баллов</span></div>' +
+    '<div class="stat-line"><span>Построено алгоритмов</span><b>' + algoCount + ' / 8</b> <span class="badge-quality">+ ' + algoCount + ' баллов</span></div>' +
+    '<div class="stat-line"><span>Время игры</span><b>'+formatTime(s1.duration||0)+'</b></div>' +
+    '<div class="stat-line"><span><b>Этап 1. Автобаллы</b></span><b>' + autoPts + '</b></div></div>';
+  
+  html += '<div class="tour4-block"><h4>Этап 2. Симулятор</h4>';
+  if (!Object.keys(s2).length) html += '<p style="color:var(--muted);">Этап 2 не пройден.</p>';
+  else Object.keys(s2).forEach(function(key){
+    html += '<div class="stat-line"><span>'+(SIM_TITLES[key]||key)+'</span><b>'+((s2[key]&&s2[key].score)||0)+' прав.</b></div>';
+  });
+  html += '<div class="stat-line" style="border-top:2px solid var(--primary);margin-top:8px;padding-top:10px;"><span><b>Этап 2. Очки</b></span><b>'+(t.t4.stage2Score||0)+'</b></div></div>';
+
+  html += `<div class="tour4-block" style="background:#f0f8ff;">
+    <h4>Дополнительные баллы</h4>
+    <p style="font-size:13px;">Если команда отличилась или вы хотите дать бонус за логику, добавьте баллы здесь.</p>
+    <div class="score-row">
+      <input type="number" id="t4_manual" value="${manual}" style="width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;">
+      <button class="btn btn-primary" onclick="saveT4Score(${teamId})">Сохранить баллы</button>
+      <span id="t4_saved" style="color:green;font-weight:bold;"></span>
+    </div>
+  </div>`;
+
+  html += '<div class="tour4-block" style="background:#e6f4ea;"><div class="stat-line" style="font-size:18px;"><span><b>Итого за Тур 4</b></span><b>'+t.t4Total+' / 33</b></div></div>';
+  box.innerHTML = html;
+}
+
+function saveT4Score(teamId) {
+  var pts = document.getElementById('t4_manual').value;
+  fetch('/api/admin/tour4/manual-score', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ teamId, manualPoints: pts })
+  }).then(() => { document.getElementById('t4_saved').textContent = 'Сохранено!'; load(); });
+}
+
+function formatTime(sec){
+  var m=Math.floor(sec/60); var s=sec%60;
+  return m+':'+(s<10?'0':'')+s;
+}
+
+// ==========================================
+// ФУНКЦИИ ДЛЯ ВИДЕО-ЭТАПА
+// ==========================================
+function loadVideoAdmin() {
+  fetch('/api/video/active')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      videoData = data;
+      renderVideoAdmin();
+    });
+}
+
+function renderVideoAdmin() {
+  var box = document.getElementById('videoAdminBox');
+  if (!videoData) return;
+  if (!allData) return;
+  
+  var d = videoData;
+  if (!d.phase) d.phase = 'idle';
+  
+  var statusHtml = '';
+  if (d.phase === 'idle') statusHtml = '<span class="badge">Не запущен</span>';
+  else if (d.phase === 'video1') statusHtml = '<span class="badge ok">Идет 1 видео (Поиск)</span>';
+  else if (d.phase === 'questions') statusHtml = '<span class="badge" style="background:#fff3cd;color:#856404;">Идут ответы (' + d.timeLeftSec + ' сек)</span>';
+  else if (d.phase === 'video2') statusHtml = '<span class="badge ok">Идет 2 видео (Разбор)</span>';
+  else if (d.phase === 'finished') statusHtml = '<span class="badge" style="background:#e6f4ea;color:#2e7d32;">Завершено</span>';
+
+  var html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">' +
+    '<button class="btn btn-primary" onclick="videoAction(\'video1\')">1. Показать видео (Поиск)</button>' +
+    '<button class="btn btn-primary" onclick="videoAction(\'questions\')" style="background:#b58b2a;">2. Запустить ввод ответов (90 сек)</button>' +
+    '<button class="btn btn-primary" onclick="videoAction(\'video2\')">3. Показать видео (Разбор)</button>' +
+    '<button class="btn btn-danger" onclick="videoAction(\'finished\')">4. Завершить этап</button>' +
+    '<button class="btn btn-secondary" onclick="window.open(\'video-projector.html\', \'_blank\')">📺 Открыть проектор</button>' +
+    '<button class="btn btn-secondary" onclick="videoAction(\'reset\')" style="margin-left:auto;">Сброс</button>' +
+  '</div>';
+
+  // ДОБАВЛЯЕМ ПРЯМЫЕ ССЫЛКИ НА ВИДЕО
+  html += '<div style="margin-bottom:20px; padding:15px; background:#f0f8ff; border:1px solid #b5d8f0; border-radius:8px;">' +
+    '<b>Если проектор не работает, откройте видео напрямую:</b><br>' +
+    '<a href="http://2.153.248.134/video/EZ1_fast.mp4" target="_blank" class="btn btn-primary" style="margin-top:10px; padding:8px 16px; display:inline-block;">▶ Открыть 1 видео (Поиск)</a> ' +
+    '<a href="http://2.153.248.134/video/EZ2_fast.mp4" target="_blank" class="btn btn-primary" style="margin-top:10px; padding:8px 16px; display:inline-block; background:#c8102e;">▶ Открыть 2 видео (Разбор)</a>' +
+  '</div>';
+
+  html += '<p><b>Статус:</b> ' + statusHtml + '</p>';
+
+  html += '<table class="table" style="margin-top:20px;">' +
+    '<thead><tr><th>Команда</th><th>Игрок</th><th>Ответ</th><th>Оценка (0-20)</th></tr></thead><tbody>';
+  
+  allData.teams.forEach(function(t) {
+    var ans = d.answers ? d.answers.find(a => String(a.teamId) === String(t.id)) : null;
+    var score = d.scores && d.scores[t.id] ? d.scores[t.id] : 0;
+    
+    html += '<tr>' +
+      '<td>' + t.emoji + ' ' + t.name + '</td>' +
+      '<td>' + (ans ? ans.playerName : '—') + '</td>' +
+      '<td style="max-width:300px;font-size:13px;">' + (ans ? ans.text : '<i>Нет ответа</i>') + '</td>' +
+      '<td>' +
+        '<input type="number" min="0" max="20" value="' + score + '" id="vscore_' + t.id + '" style="width:60px;padding:4px;">' +
+        '<button class="btn btn-primary" style="padding:4px 8px;font-size:12px;margin-left:5px;" onclick="saveVideoScore(' + t.id + ')">ОК</button>' +
+      '</td>' +
+    '</tr>';
+  });
+  
+  html += '</tbody></table>';
+  box.innerHTML = html;
+}
+
+function videoAction(action) {
+  fetch('/api/video/' + action, { method: 'POST' }).then(() => loadVideoAdmin());
+}
+
+function saveVideoScore(teamId) {
+  var val = document.getElementById('vscore_' + teamId).value;
+  fetch('/api/video/score', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ teamId: teamId, score: Number(val) })
+  }).then(() => { alert('Сохранено!'); load(); });
+}
+
+// ==========================================
+// СВОДКА И ОСТАЛЬНОЕ
+// ==========================================
+function renderSummary(){
+  var rows = allData.teams.slice().sort(function(a,b){ return b.grand - a.grand; });
+  var tbody = document.querySelector('#tbl tbody');
+  tbody.innerHTML = '';
+  if (!rows.length) { tbody.innerHTML='<tr><td colspan="12">Нет команд.</td></tr>'; return; }
+  rows.forEach(function(r,i){
+    var tr = document.createElement('tr');
+    if (i===0 && rows.length>1 && r.grand>0) tr.className='leader';
+    var caseSum = (r.t1Case.score||[]).reduce(function(a,b){return a+(Number(b)||0);},0);
+    var badgesHtml = (r.badges && r.badges.length) ? '<span class="badges-inline">' + r.badges.map(function(b){return b.icon;}).join('') + '</span>' : '';
+    tr.innerHTML =
+      '<td>'+(i+1)+'</td>' +
+      '<td><span class="team-avatar">'+r.emoji+'</span><span class="color-badge" style="background:'+r.color+';"></span>'+r.name+badgesHtml+'</td>' +
+      '<td>'+r.t1Quiz.correctK+' / 30</td>' +
+      '<td>'+caseSum+' / 10</td>' +
+      '<td><b>'+r.t1Total+' / 48</b></td>' +
+      '<td>'+r.t2.correct+(r.t2.duelScore ? ' <span class="badge-bonus gold">⚔️+'+r.t2.duelScore+'</span>' : '')+' / 38</td>' +
+      '<td>'+r.t3Total+' / 23</td>' +
+      '<td>'+r.t4Total+' / 33</td>' +
+      '<td>'+(r.videoScore ? '<b>'+r.videoScore+' / 20</b>' : '—')+'</td>' +
+      '<td>'+(r.speedBonusTotal ? '<span class="badge-bonus gold">🎯 +'+r.speedBonusTotal+'</span>' : '—')+'</td>' +
+      '<td>'+(r.qualityTotal ? '<span class="badge-quality">🌟 +'+r.qualityTotal+'</span>' : '—')+'</td>' +
+      '<td><b>'+r.grand+'</b></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function exportCSV(){
+  var rows = [['Место','Команда','Т1 квиз','Коэф','Т1 с коэф','Т1 кейс','Т1 итого','Т2','Т3','Т4','Видео','Спид-бонусы','Качество','Общий','Бейджи']];
+  var s = allData.teams.slice().sort(function(a,b){ return b.grand - a.grand; });
+  s.forEach(function(r,i){
+    var caseSum = (r.t1Case.score||[]).reduce(function(a,b){return a+(Number(b)||0);},0);
+    var badges = (r.badges||[]).map(function(b){return b.title;}).join(', ');
+    rows.push([i+1, r.name, r.t1Quiz.correct, r.t1Quiz.coefficient, r.t1Quiz.correctK, caseSum, r.t1Total, r.t2.correct, r.t3Total, r.t4Total, r.videoScore || 0, r.speedBonusTotal, r.qualityTotal, r.grand, badges]);
+  });
+  var csv = rows.map(function(r){ return r.join(';'); }).join('\n');
+  var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tournament-results.csv';
+  a.click();
+}
+
+function resetTour(){
+  var t = prompt('Какой тур сбросить? Введите 1, 2, 3, 4 (или 5 для видео):');
+  if (!t) return;
+  if (!confirm('Удалить все данные Тура '+t+'?')) return;
+  if (t === '5') {
+    fetch('/api/video/reset', { method: 'POST' }).then(function(){ load(); });
+  } else {
+    fetch('/api/admin/reset-tour', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tour: t }) }).then(function(){ load(); });
+  }
+}
+
+function clearAll(){
+  if (!confirm('Удалить ВСЕ данные? Это нельзя отменить.')) return;
+  if (!confirm('Точно? Это крайнее действие.')) return;
+  fetch('/api/admin/clear-all', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ confirm: 'YES' }) }).then(function(){ load(); });
+}
+
+function openLeaderboard(){ window.open('leaderboard.html', '_blank'); }
+
+function closeBadgesModal(){
+  var m = document.getElementById('badgesModal');
+  if (m) m.remove();
+}
+
+function showAllBadges(){
+  if (!allData) return;
+  var html = '<div id="badgesModal" class="badges-modal-overlay">';
+  html += '<div class="badges-modal">';
+  html += '<h2>🏅 Достижения команд</h2>';
+  var sorted = allData.teams.slice().sort(function(a,b){ return (b.badges||[]).length - (a.badges||[]).length; });
+  sorted.forEach(function(t){
+    html += '<div class="badges-team">';
+    html += '<div class="badges-team-title"><span class="emoji">' + t.emoji + '</span> ' + t.name + '</div>';
+    if (!t.badges || !t.badges.length) {
+      html += '<p style="color:#5a6470;font-size:14px;">Пока без достижений</p>';
+    } else {
+      t.badges.forEach(function(b){
+        html += '<div class="badge-pill"><span class="b-icon">' + b.icon + '</span> ' + b.title + ' <span class="b-desc">— ' + b.desc + '</span></div>';
+      });
+    }
+    html += '</div>';
+  });
+  html += '<div style="text-align:center;margin-top:20px;"><button class="btn btn-secondary" onclick="closeBadgesModal()">Закрыть</button></div>';
+  html += '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function startTimer(minutes){
+  fetch('/api/timer/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ minutes: minutes }) }).then(function(){ updateTimerStatus(); });
+}
+function stopTimer(){
+  fetch('/api/timer/stop', { method:'POST' }).then(function(){ updateTimerStatus(); });
+}
+function updateTimerStatus(){
+  fetch('/api/timer/state').then(function(r){ return r.json(); }).then(function(t){
+    var el = document.getElementById('timerStatus');
+    if (!t.active && !t.expired) { el.className = 'timer-status'; el.textContent = '— не активен —'; return; }
+    if (t.expired) { el.className = 'timer-status expired'; el.textContent = '⏰ ВРЕМЯ ВЫШЛО'; return; }
+    var mm = (t.minutesLeft < 10 ? '0' : '') + t.minutesLeft;
+    var ss = (t.secondsLeft < 10 ? '0' : '') + t.secondsLeft;
+    el.className = 'timer-status active';
+    el.textContent = '⏱ ' + mm + ':' + ss + ' из ' + t.totalMinutes + ' мин';
+  }).catch(function(){});
+}
+
+var audioCtx = null;
+function initAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return audioCtx; }
+
+function playFanfare(){
+  try {
+    initAudio();
+    var notes = [523, 659, 784, 1047, 1319];
+    notes.forEach(function(freq, i){
+      setTimeout(function(){
+        var o = audioCtx.createOscillator(); var g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 0.5);
+      }, i * 130);
+    });
+  } catch (e) { alert('Звук недоступен.'); }
+}
+
+function playTruckHorn(){
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    var now = audioCtx.currentTime;
+    var dur = 2.2;
+    var o1 = audioCtx.createOscillator(); var g1 = audioCtx.createGain();
+    o1.type = 'sawtooth';
+    o1.frequency.setValueAtTime(95, now);
+    o1.frequency.linearRampToValueAtTime(105, now + 0.1);
+    o1.frequency.linearRampToValueAtTime(98, now + dur);
+    g1.gain.setValueAtTime(0.0001, now);
+    g1.gain.linearRampToValueAtTime(0.4, now + 0.05);
+    g1.gain.setValueAtTime(0.4, now + dur - 0.2);
+    g1.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o1.connect(g1); g1.connect(audioCtx.destination);
+    o1.start(now); o1.stop(now + dur);
+
+    var o2 = audioCtx.createOscillator(); var g2 = audioCtx.createGain();
+    o2.type = 'sawtooth';
+    o2.frequency.setValueAtTime(142, now);
+    o2.frequency.linearRampToValueAtTime(158, now + 0.1);
+    o2.frequency.linearRampToValueAtTime(147, now + dur);
+    g2.gain.setValueAtTime(0.0001, now);
+    g2.gain.linearRampToValueAtTime(0.3, now + 0.05);
+    g2.gain.setValueAtTime(0.3, now + dur - 0.2);
+    g2.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o2.connect(g2); g2.connect(audioCtx.destination);
+    o2.start(now); o2.stop(now + dur);
+
+    if (navigator.vibrate) navigator.vibrate([400, 100, 400, 100, 600]);
+  } catch (e) { alert('Звук недоступен.'); }
+}
+
+function deleteTeam(id, name) {
+  if(!confirm('Точно удалить команду "' + name + '"? Все её результаты будут стерты.')) return;
+  fetch('/api/admin/team/delete', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ teamId: id })
+  }).then(function(r) {
+    if(r.ok) load();
+    else alert('Ошибка при удалении');
+  });
+}
+</script>
+
+</body>
+</html>

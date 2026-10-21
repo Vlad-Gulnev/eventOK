@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тур 2. Психологический иммунитет</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.gallery{display:flex;gap:10px;overflow-x:auto;padding:8px 0 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.gallery img{flex-shrink:0;height:340px;border-radius:10px;box-shadow:var(--shadow);scroll-snap-align:start;cursor:zoom-in}
+.gallery-hint{font-size:13px;color:var(--muted);margin:0 0 8px}
+.q-block{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:var(--shadow)}
+.q-block h3{margin:0 0 8px;color:var(--primary-dark);font-size:17px}
+.q-text{font-weight:600;margin:12px 0}
+.opt{display:block;padding:11px 14px;margin:6px 0;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:background 0.12s,border-color 0.12s}
+.opt:hover{background:var(--primary-soft)}
+.opt input{margin-right:10px}
+.sticky-submit{position:sticky;bottom:0;background:rgba(245,247,250,0.95);backdrop-filter:blur(6px);padding:12px 0;margin-top:24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:5}
+.sticky-submit .progress-text{font-size:14px;color:var(--muted)}
+.ticket{background:#fff;border:2px solid var(--primary);border-radius:var(--radius);padding:20px;margin:20px 0}
+.ticket .big{font-size:32px;font-weight:800;color:var(--primary-dark)}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px;cursor:zoom-out}
+.lightbox.open{display:flex}
+.lightbox img{max-width:95vw;max-height:95vh;border-radius:8px}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Тур 2. Психологический иммунитет</h1>
+  </div>
+</header>
+
+<main class="container">
+  <p id="who" style="color: var(--muted); font-size: 14px;"></p>
+
+  <div class="card">
+    <h2>Как это работает</h2>
+    <p>Разберите 10 ситуаций. Каждая — с набором карточек. Пролистайте их, обсудите, ответьте на вопрос. Баллы — автоматически, 2 за каждый правильный ответ.</p>
+  </div>
+
+  <div id="questions"></div>
+  <div class="sticky-submit">
+    <span class="progress-text" id="progressText">Отвечено: 0 / 10</span>
+    <button class="btn btn-primary" id="submitBtn" onclick="submitAll()">Отправить ответы</button>
+  </div>
+  <div id="ticketBox"></div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src="" alt=""></div>
+
+<script src="timer-widget.js"></script>
+<script>
+var params = new URLSearchParams(location.search);
+var teamId = params.get('team');
+var token  = params.get('token');
+var teamName = 'Команда #' + teamId;
+
+fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
+  .then(function(r) { return r.ok ? r.json() : null; })
+  .then(function(t) { if (t) teamName = t.name; document.getElementById('who').textContent = teamName; });
+
+var questions = [
+  {
+    id: 1, title: 'Ситуация 1. Угроза в сети',
+    images: ['img/anon1.webp', 'img/anon2.webp', 'img/anon3.webp', 'img/anon4.webp'],
+    text: 'Что нужно делать в первую очередь, если тебе угрожают в интернете?',
+    multiple: false,
+    options: [
+      'Ответить тем же',
+      'Сохранить скриншоты, заблокировать, рассказать старшим или в полицию',
+      'Просто удалить аккаунт',
+      'Ничего, это шутка'
+    ],
+    correct: [1]
+  },
+  {
+    id: 2, title: 'Ситуация 2. «Живые бомбы»',
+    images: ['img/boom1.webp', 'img/boom2.webp', 'img/boom3.webp'],
+    text: 'Как понять, что тебе предлагают опасную «подработку»? (отметь все верные)',
+    multiple: true,
+    options: [
+      'Оплата слишком высокая за «несложную» работу',
+      'Просят никому не рассказывать',
+      'Просят передать посылку или сфотографировать объект',
+      'Есть официальный договор, сайт компании, прозрачные условия'
+    ],
+    correct: [0, 1, 2]
+  },
+  {
+    id: 3, title: 'Ситуация 3. Вовлечение через мошенничество',
+    images: ['img/boom4.webp', 'img/boom5.webp', 'img/boom6.webp', 'img/boom7.webp'],
+    text: 'Что ты сделаешь, если незнакомый человек (или знакомый) просит передать посылку?',
+    multiple: false,
+    options: [
+      'Соглашусь, если платят хорошо',
+      'Спрошу, что внутри',
+      'Откажусь и предупрежу близких, если просят знакомые',
+      'Соглашусь, если человек выглядит надёжным'
+    ],
+    correct: [2]
+  },
+  {
+    id: 4, title: 'Ситуация 4. Как защитить себя',
+    images: ['img/anon1.webp', 'img/boom7.webp'],
+    text: 'Какие действия помогут защитить тебя и близких? (отметь все верные)',
+    multiple: true,
+    options: [
+      'Рассказать близкому, если он нашёл «странную подработку»',
+      'Обращать внимание на бесхозные предметы',
+      'Не соглашаться передавать посылки, даже по просьбе знакомого',
+      'Сообщать о признаках вовлечения старшим или в полицию',
+      'Решать всё самому, никого не посвящать',
+      'Смеяться и не воспринимать серьёзно'
+    ],
+    correct: [0, 1, 2, 3]
+  },
+  {
+    id: 5, title: 'Ситуация 5. Один клик может привести к уголовному делу',
+    images: ['img/case1-a.png', 'img/case1-b.png'],
+    text: 'Что должно насторожить в поведении человека, который ещё не совершил преступление? (отметь все верные)',
+    multiple: true,
+    options: [
+      'Изучение в интернете материалов по изготовлению взрывных устройств',
+      'Интерес к деструктивным сообществам и закрытым группам',
+      'Агрессивный контент в личных подборках',
+      'Обычный интерес к химии или технике'
+    ],
+    correct: [0, 1, 2]
+  },
+  {
+    id: 6, title: 'Ситуация 6. Что делать, если втягивают',
+    images: ['img/case1-a.png', 'img/case1-b.png'],
+    text: 'Что делать, если ты замечаешь, что тебя или друга втягивают в опасное сообщество?',
+    multiple: false,
+    options: [
+      'Наблюдать дальше, чтобы понять до конца',
+      'Вовремя дистанцироваться и обратиться к близким, преподавателям или специалистам',
+      'Держать в тайне, чтобы не было проблем',
+      'Продолжать общаться — «авось, пронесёт»'
+    ],
+    correct: [1]
+  },
+  {
+    id: 7, title: 'Ситуация 7. Как манипуляторы используют молодёжь',
+    images: ['img/case2-a.png', 'img/case2-b.png'],
+    text: 'Почему молодые люди чаще становятся целью вербовщиков? (отметь все верные)',
+    multiple: true,
+    options: [
+      'Ими легче манипулировать через страх',
+      'Через обещания заработка',
+      'Через чувство значимости и «своей» компании',
+      'Потому что они лучше разбираются в технологиях'
+    ],
+    correct: [0, 1, 2]
+  },
+  {
+    id: 8, title: 'Ситуация 8. Что нельзя делать по просьбе «куратора»',
+    images: ['img/case2-a.png', 'img/case2-b.png'],
+    text: 'Что нельзя делать, если незнакомый «куратор» просит выполнить поручение? (отметь все верные)',
+    multiple: true,
+    options: [
+      'Передавать личные данные и документы',
+      'Переводить деньги по указанию третьих лиц',
+      'Соглашаться на действия, смысл которых скрывается',
+      'Уточнять детали у официальных источников'
+    ],
+    correct: [0, 1, 2]
+  },
+  {
+    id: 9, title: 'Ситуация 9. Телефонные мошенники',
+    images: ['img/case3-a.png', 'img/case3-b.png'],
+    text: 'Что должно насторожить в звонке от «сотрудника банка»? (отметь все верные)',
+    multiple: true,
+    options: [
+      'Требование перевести деньги на «безопасный счёт»',
+      'Просьба никому не рассказывать о разговоре',
+      'Срочность и давление («действуйте прямо сейчас»)',
+      'Предложение прийти в отделение банка лично'
+    ],
+    correct: [0, 1, 2]
+  },
+  {
+    id: 10, title: 'Ситуация 10. Если стал жертвой — что делать',
+    images: ['img/case3-a.png', 'img/case3-b.png'],
+    text: 'Если ты понял, что стал жертвой мошенников или тебя втягивают — что делать?',
+    multiple: false,
+    options: [
+      'Молчать, чтобы не было стыдно',
+      'Прекратить общение, рассказать близким и обратиться в банк или полицию',
+      'Продолжить разговор, чтобы «выиграть время»',
+      'Решить всё самостоятельно, никого не посвящая'
+    ],
+    correct: [1]
+  }
+];
+
+function render() {
+  var box = document.getElementById('questions');
+  box.innerHTML = '';
+  questions.forEach(function(q) {
+    var html = '<div class="q-block" id="qblock_' + q.id + '">' +
+      '<h3>' + q.title + '</h3>' +
+      '<p class="gallery-hint">Пролистайте карточки →</p>' +
+      '<div class="gallery">';
+    q.images.forEach(function(src) {
+      html += '<img src="' + src + '" alt="" onclick="openLightbox(\'' + src + '\')">';
+    });
+    html += '</div><p class="q-text">' + q.text + '</p>';
+    q.options.forEach(function(opt, j) {
+      var inputType = q.multiple ? 'checkbox' : 'radio';
+      html += '<label class="opt"><input type="' + inputType + '" name="q' + q.id + '" value="' + j + '" onchange="updateProgress()"> ' + opt + '</label>';
+    });
+    html += '</div>';
+    box.insertAdjacentHTML('beforeend', html);
+  });
+}
+
+function updateProgress() {
+  var answered = 0;
+  questions.forEach(function(q) {
+    if (document.querySelectorAll('input[name="q' + q.id + '"]:checked').length > 0) answered++;
+  });
+  document.getElementById('progressText').textContent = 'Отвечено: ' + answered + ' / ' + questions.length;
+}
+
+function openLightbox(src) { document.getElementById('lightboxImg').src = src; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+function submitAll() {
+  var unanswered = 0;
+  questions.forEach(function(q) {
+    if (document.querySelectorAll('input[name="q' + q.id + '"]:checked').length === 0) unanswered++;
+  });
+  if (unanswered > 0 && !confirm('Вы ответили не на все вопросы. Всё равно отправить?')) return;
+
+  var totalCorrect = 0;
+  var answers = {};
+  questions.forEach(function(q) {
+    var picked = [];
+    document.querySelectorAll('input[name="q' + q.id + '"]:checked').forEach(function(inp) { picked.push(Number(inp.value)); });
+    answers[q.id] = picked;
+    var correct = q.correct.slice().sort().join(',');
+    var given = picked.slice().sort().join(',');
+    if (correct === given) totalCorrect += 2;
+  });
+
+  var maxPoints = questions.length * 2;
+
+  fetch('/api/tour2', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId: teamId, answers: answers, correct: totalCorrect, total: maxPoints })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      var bonusHtml = (res && res.bonus) ? '<p style="color:#856404;font-weight:700;">🎯 Бонус за скорость: +' + res.bonus + ' балла!</p>' : '';
+      document.getElementById('ticketBox').innerHTML =
+        '<div class="ticket">' +
+          '<h3>Результат Тура 2</h3>' +
+          '<p><b>Команда:</b> ' + teamName + '</p>' +
+          '<p><b>Балл:</b> <span class="big">' + totalCorrect + ' / ' + maxPoints + '</span></p>' +
+          bonusHtml +
+          '<p style="margin-top:16px;"><a class="btn btn-primary" href="menu.html?team=' + teamId + '&token=' + token + '">← Вернуться в меню туров</a></p>' +
+        '</div>';
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').textContent = 'Ответы отправлены';
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
+}
+
+render();
+updateProgress();
+</script>
+
+</body>
+</html>

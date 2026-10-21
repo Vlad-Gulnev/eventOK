@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тур 4. Найди опасность</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    body{-webkit-tap-highlight-color:transparent}
+    .game-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;flex-wrap:wrap}
+    .game-nav .stat{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--primary-dark)}
+    .game-nav .stat small{font-weight:400;color:var(--muted);font-size:12px}
+    .progress-strip{height:8px;background:#dfe6ec;border-radius:4px;overflow:hidden;margin-bottom:16px}
+    .progress-strip>div{height:100%;background:linear-gradient(90deg,#157fc4,#0f5d92);transition:width 0.3s}
+    .level-title{font-size:17px;color:var(--primary-dark);font-weight:700;margin:0 0 12px}
+    .scene-wrap{position:relative;border-radius:var(--radius);overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);user-select:none;touch-action:manipulation}
+    .scene-wrap img{display:block;width:100%;height:auto;pointer-events:none;-webkit-user-drag:none}
+    .hotspot{position:absolute;width:10%;height:10%;border-radius:50%;transform:translate(-50%,-50%);background:transparent;cursor:pointer;transition:background 0.3s,box-shadow 0.3s}
+    .hotspot.found{background:rgba(46,125,50,0.35);box-shadow:0 0 0 3px rgba(46,125,50,0.6),0 0 20px rgba(46,125,50,0.6);animation:pulse 1.2s ease-in-out;pointer-events:none}
+    @keyframes pulse{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.15)}100%{transform:translate(-50%,-50%) scale(1)}}
+    .tap-ripple{position:absolute;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.6);transform:translate(-50%,-50%) scale(0);pointer-events:none;animation:ripple 0.6s ease-out forwards}
+    @keyframes ripple{to{transform:translate(-50%,-50%) scale(3);opacity:0}}
+    .tap-miss{position:absolute;width:26px;height:26px;color:#c62828;font-size:22px;font-weight:800;transform:translate(-50%,-50%);pointer-events:none;animation:missFade 1s ease-out forwards}
+    @keyframes missFade{0%{opacity:1}100%{opacity:0;transform:translate(-50%,-100%)}}
+    .scene-info{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+    .scene-info b{color:var(--primary-dark)}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:100;display:none;align-items:flex-end;justify-content:center}
+    .modal-overlay.open{display:flex}
+    .modal-sheet{background:#fff;width:100%;max-width:700px;max-height:85vh;overflow-y:auto;border-top-left-radius:20px;border-top-right-radius:20px;padding:20px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);animation:slideUp 0.35s ease-out}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .modal-sheet h3{margin:0 0 6px;color:var(--primary-dark);font-size:18px}
+    .modal-sheet .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+    .sortable-list{list-style:none;padding:0;margin:0}
+    .sortable-item{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:8px 0;background:#fff;border:2px solid var(--border);border-radius:10px;cursor:grab;transition:background 0.2s,border-color 0.2s}
+    .sortable-item.dragging{opacity:0.5}
+    .sortable-item img{width:42px;height:42px;flex-shrink:0}
+    .sortable-item .text{flex-grow:1;font-size:14px;font-weight:600}
+    .sortable-handle{color:var(--muted);font-size:18px;user-select:none;cursor:grab}
+    .modal-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+    .modal-actions .btn{flex:1;min-width:140px;text-align:center}
+    .intro-hero{text-align:center;padding:30px 20px;background:linear-gradient(135deg,#157fc4,#0f5d92);color:#fff;border-radius:var(--radius);margin-bottom:20px;box-shadow:0 4px 20px rgba(21,127,196,0.3)}
+    .intro-hero h1{color:#fff;margin:0 0 8px;font-size:26px}
+    .intro-hero p{color:rgba(255,255,255,0.9);margin:0;font-size:15px}
+    .intro-icon{font-size:56px;margin-bottom:12px}
+    .rules{list-style:none;padding:0;margin:16px 0}
+    .rules li{padding:10px 14px;background:#f7f9fc;border-left:4px solid var(--primary);border-radius:6px;margin:8px 0;font-size:14px}
+    .final-hero{text-align:center;padding:30px 20px;background:#fff;border:2px solid var(--primary);border-radius:var(--radius)}
+    .medal{font-size:72px;margin:0 0 12px}
+    .final-hero h1{font-size:24px;margin:0 0 12px}
+    .final-stats{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin:16px 0}
+    .final-stats .stat-box{text-align:center}
+    .final-stats .stat-box b{display:block;font-size:28px;color:var(--primary-dark)}
+    .final-stats .stat-box small{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:0.05em}
+    .sim-container{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:20px}
+    .sim-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .sim-header h3{margin:0;color:var(--primary-dark);font-size:17px}
+    .sim-progress{font-size:13px;color:var(--muted)}
+    .sim-text{background:#f7f9fc;border-left:4px solid var(--primary);padding:14px 18px;border-radius:6px;margin:12px 0 16px;font-size:15px;line-height:1.5}
+    .sim-choice{display:block;width:100%;text-align:left;padding:14px 16px;margin:8px 0;background:#fff;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-family:inherit;font-size:15px;transition:border-color 0.15s,background 0.15s}
+    .sim-choice:hover{border-color:var(--primary);background:var(--primary-soft)}
+    .sim-choice.correct{background:#e6f4ea;border-color:#7fbb8c}
+    .sim-choice.wrong{background:#fdecec;border-color:#e59898}
+    .sim-choice:disabled{cursor:default}
+    .sim-feedback{padding:12px 16px;border-radius:8px;margin:12px 0;font-size:14px}
+    .sim-feedback.ok{background:#e6f4ea;color:#1f6d2f}
+    .sim-feedback.err{background:#fdecec;color:#a33131}
+    .sim-result{background:#fff8e1;border-left:4px solid #d4a017;padding:16px 20px;border-radius:8px;margin-top:16px}
+    .sim-result h4{margin:0 0 8px;color:#664d03}
+    .ticket{background:#fff;border:2px solid var(--primary);border-radius:var(--radius);padding:20px;margin:20px 0}
+    .hidden{display:none !important}
+    @media (max-width:640px){.game-nav{padding:10px 12px}.game-nav .stat{font-size:14px}.modal-sheet{padding:16px}.sortable-item{padding:10px 12px}.sortable-item img{width:36px;height:36px}.intro-hero h1{font-size:22px}}
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Тур 4. Алгоритм действий</h1>
+  </div>
+</header>
+
+<main class="container">
+  <p id="who" style="color: var(--muted); font-size: 14px;"></p>
+
+  <section id="introScreen">
+    <div class="intro-hero">
+      <div class="intro-icon">🔍</div>
+      <h1>Найди опасность</h1>
+      <p>Игра-детектив по безопасности</p>
+    </div>
+    <div class="card">
+      <h2>Правила</h2>
+      <ul class="rules">
+        <li>🔎 На картинке спрятан <b>опасный объект</b> или <b>признак угрозы</b>. Найди его — тапни по нему.</li>
+        <li>🧩 Когда найдёшь — собери <b>правильный порядок действий</b> из плиток.</li>
+        <li>⏱ На уровень даётся <b>60 секунд</b>.</li>
+        <li>🎯 Всего 5 уровней. За каждый найденный предмет +1 балл, за построенный алгоритм +1 балл.</li>
+      </ul>
+      <div style="margin-top:20px;"><button class="btn btn-primary" onclick="startGame()" style="font-size:18px;padding:14px 32px;">▶ Начать игру</button></div>
+    </div>
+  </section>
+
+  <section id="gameScreen" class="hidden">
+    <div class="game-nav">
+      <div class="stat"><span id="levelIndicator">Уровень 1 / 5</span></div>
+      <div class="stat"><span id="timerDisplay">60:00</span></div>
+    </div>
+    <div class="progress-strip"><div id="progressBar" style="width:0%"></div></div>
+    <h2 class="level-title" id="levelTitle">Уровень 1</h2>
+    <div class="scene-wrap" id="sceneWrap"><img id="sceneImg" src="" alt=""></div>
+    <div class="scene-info">
+      <span>Найдено: <b id="foundCount">0 / 1</b></span>
+      <span id="missCount">Промахов: <b>0</b></span>
+    </div>
+    <div id="afterFind" class="hidden" style="margin-top:20px;">
+      <button class="btn btn-primary" onclick="openAlgorithmModal()">🧩 Собрать алгоритм действий →</button>
+    </div>
+  </section>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-sheet">
+      <h3>Собери правильный порядок</h3>
+      <p class="sub">Перетаскивай плитки пальцем или мышкой. Жюри оценит логику вашего порядка.</p>
+      <ul class="sortable-list" id="sortableList"></ul>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+        <button class="btn btn-primary" onclick="submitAlgorithm()">Отправить порядок</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="finalScreen" class="hidden">
+    <div class="final-hero">
+      <div class="medal" id="medalIcon">⏳</div>
+      <h1 id="finalTitle">Игра завершена!</h1>
+      <p id="finalSub" style="color:var(--muted);">Ожидайте оценки жюри.</p>
+      <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="goToStage2()" style="padding:14px 32px;font-size:17px;">▶ Этап 2. Симулятор</button>
+        <a class="btn btn-secondary" href="#" id="backFromFinal" style="padding:14px 24px;">← В меню туров</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="stage2Screen" class="hidden">
+    <h2 style="margin-top:20px;padding-top:20px;border-top:2px solid var(--border);">Этап 2. Симулятор</h2>
+    <div id="sims"></div>
+    <div class="card" style="margin-top:20px;">
+      <button class="btn btn-primary" id="submitStage2Btn" onclick="submitStage2()" style="margin-right:10px;">Отправить ответы</button>
+      <a class="btn btn-secondary" href="#" id="backLink2" style="margin-left:10px;">← В меню туров</a>
+    </div>
+    <div id="ticketBox"></div>
+  </section>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<script>
+var params = new URLSearchParams(location.search);
+var teamId = params.get('team');
+var token  = params.get('token');
+var teamName = 'Команда #' + teamId;
+document.getElementById('backFromFinal').href = 'menu.html?team=' + teamId + '&token=' + token;
+document.getElementById('backLink2').href = 'menu.html?team=' + teamId + '&token=' + token;
+
+fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
+  .then(r => r.ok ? r.json() : null)
+  .then(t => { if (t) teamName = t.name; document.getElementById('who').textContent = teamName; });
+
+var TILE_ICONS = {
+  stop:  'img/icon-stop.png', leave: 'img/icon-leave.png', warn:  'img/icon-warn.png',
+  call:  'img/icon-call.png', safe:  'img/icon-safe.png', screenshot: 'img/icon-photo.png'
+};
+
+var LEVELS = [
+  { id:'find-2', title:'Уровень 1. Аудитория', img:'img/find-2.jpg', hotspots:[{x:49.2,y:67.1},{x:48.5,y:86.1}], algorithm:[{key:'stop', text:'Не открывать коробку и не трогать тележку'},{key:'leave',text:'Вывести людей из аудитории'},{key:'warn', text:'Сообщить преподавателю и охране'},{key:'safe', text:'Сохранять спокойствие, не паниковать'},{key:'call', text:'Позвонить в 112'}] },
+  { id:'find-3', title:'Уровень 2. Кофейня', img:'img/find-3.png', hotspots:[{x:48.6,y:84.9},{x:60.1,y:89.9}], algorithm:[{key:'stop', text:'Не брать чужой рюкзак и телефон'},{key:'safe', text:'Не паниковать, но быть внимательным'},{key:'warn', text:'Сказать администратору кофейни'},{key:'leave',text:'Отойти от столика'},{key:'call', text:'При угрозе — позвонить в 112'}] },
+  { id:'find-4', title:'Уровень 3. Вход в вуз', img:'img/find-4.jpg', hotspots:[{x:70.7,y:87.5},{x:80.9,y:55.4}], algorithm:[{key:'stop', text:'Не подходить к человеку и его пакету'},{key:'leave',text:'Отойти в безопасное место'},{key:'warn', text:'Сообщить охране на входе'},{key:'call', text:'Позвонить в 112'}] },
+  { id:'find-6', title:'Уровень 4. Кабинет права', img:'img/find-6.png', hotspots:[{x:61.1,y:64.3},{x:73.5,y:49}], algorithm:[{key:'stop', text:'Не трогать коробку и телефон'},{key:'leave',text:'Отойти от стола'},{key:'warn', text:'Сообщить в деканат или охране'},{key:'safe', text:'Действовать спокойно, без паники'},{key:'call', text:'Позвонить в 112'}] },
+  { id:'find-7', title:'Уровень 5. Опасный пост в соцсети', img:'img/find-8.png', hotspots:[{x:55,y:50.1}], algorithm:[{key:'safe', text:'Сохранять спокойствие, не паниковать'},{key:'stop', text:'Не пересылать пост и не вступать в диалог'},{key:'warn', text:'Пожаловаться администрации соцсети'},{key:'screenshot', text:'Сделать скриншот поста и профиля автора'},{key:'call', text:'Сообщить старшим или в полицию'}] }
+];
+
+var state = { levelIdx:0, totalMisses:0, startTime:0 };
+var timeLeftSec = 60;
+var timerInterval = null;
+var sortableInstance = null;
+
+function startGame() {
+  state.startTime = Date.now();
+  document.getElementById('introScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  loadLevel(0);
+}
+
+function loadLevel(idx) {
+  state.levelIdx = idx;
+  timeLeftSec = 60;
+  var lvl = LEVELS[idx];
+  
+  lvl.found = false;
+  lvl.algoBuilt = false;
+
+  document.getElementById('levelTitle').textContent = lvl.title;
+  document.getElementById('levelIndicator').textContent = 'Уровень ' + (idx+1) + ' / ' + LEVELS.length;
+  document.getElementById('progressBar').style.width = ((idx) / LEVELS.length * 100) + '%';
+  document.getElementById('sceneImg').src = lvl.img;
+  document.getElementById('foundCount').textContent = '0 / ' + lvl.hotspots.length;
+  document.getElementById('missCount').innerHTML = 'Промахов: <b>0</b>';
+  document.getElementById('afterFind').classList.add('hidden');
+
+  var wrap = document.getElementById('sceneWrap');
+  wrap.querySelectorAll('.hotspot, .tap-ripple, .tap-miss').forEach(el => el.remove());
+  lvl.hotspots.forEach(h => {
+    var el = document.createElement('div');
+    el.className = 'hotspot';
+    el.style.left = h.x + '%'; el.style.top = h.y + '%';
+    el.dataset.found = '0';
+    wrap.appendChild(el);
+  });
+  wrap.onclick = e => { if (e.target.classList.contains('hotspot')) return; handleMiss(e); };
+  wrap.querySelectorAll('.hotspot').forEach(h => { h.onclick = e => { e.stopPropagation(); handleHit(h, e); }; });
+  startTimer();
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  updateTimerDisplay();
+  timerInterval = setInterval(() => { if (timeLeftSec > 0) { timeLeftSec--; updateTimerDisplay(); } }, 1000);
+}
+function updateTimerDisplay() {
+  var m = Math.floor(timeLeftSec / 60); var s = timeLeftSec % 60;
+  var el = document.getElementById('timerDisplay');
+  el.textContent = (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  el.style.color = timeLeftSec <= 10 ? '#c62828' : '';
+}
+function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
+
+function handleHit(el, e) {
+  if (el.dataset.found === '1') return;
+  el.dataset.found = '1';
+  el.classList.add('found');
+  var lvl = LEVELS[state.levelIdx];
+  var foundNow = document.querySelectorAll('.hotspot.found').length;
+  document.getElementById('foundCount').textContent = foundNow + ' / ' + lvl.hotspots.length;
+
+  var rect = document.getElementById('sceneWrap').getBoundingClientRect();
+  var rip = document.createElement('div');
+  rip.className = 'tap-ripple';
+  rip.style.left = ((e.clientX - rect.left) / rect.width * 100) + '%';
+  rip.style.top = ((e.clientY - rect.top) / rect.height * 100) + '%';
+  document.getElementById('sceneWrap').appendChild(rip);
+  setTimeout(() => rip.remove(), 700);
+
+  if (foundNow === lvl.hotspots.length) {
+    lvl.found = true;
+    stopTimer();
+    setTimeout(() => document.getElementById('afterFind').classList.remove('hidden'), 400);
+  }
+}
+
+function handleMiss(e) {
+  state.totalMisses++;
+  document.getElementById('missCount').innerHTML = 'Промахов: <b>' + state.totalMisses + '</b>';
+  var wrap = document.getElementById('sceneWrap');
+  var rect = wrap.getBoundingClientRect();
+  var x = ((e.clientX - rect.left) / rect.width * 100);
+  var y = ((e.clientY - rect.top) / rect.height * 100);
+  var mark = document.createElement('div');
+  mark.className = 'tap-miss'; mark.textContent = '✕';
+  mark.style.left = x + '%'; mark.style.top = y + '%';
+  wrap.appendChild(mark);
+  setTimeout(() => mark.remove(), 1000);
+}
+
+function shuffleArr(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function openAlgorithmModal() {
+  var lvl = LEVELS[state.levelIdx];
+  var shuffled = shuffleArr(lvl.algorithm);
+
+  var list = document.getElementById('sortableList');
+  list.innerHTML = '';
+  shuffled.forEach(tile => {
+    var li = document.createElement('li');
+    li.className = 'sortable-item';
+    li.dataset.key = tile.key;
+    li.innerHTML = `<span class="sortable-handle">☰</span>
+      <img src="${TILE_ICONS[tile.key] || TILE_ICONS.safe}" alt="">
+      <span class="text">${tile.text}</span>`;
+    list.appendChild(li);
+  });
+
+  if (sortableInstance) sortableInstance.destroy();
+  sortableInstance = new Sortable(list, { animation: 200, handle: '.sortable-handle', ghostClass: 'dragging' });
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function submitAlgorithm() {
+  var lvl = LEVELS[state.levelIdx];
+  var items = Array.from(document.querySelectorAll('#sortableList .sortable-item'));
+  var userOrder = items.map(it => it.dataset.key);
+
+  var correctOrder = lvl.algorithm.map(a => a.key).join(',');
+  var userOrderStr = userOrder.join(',');
+
+  lvl.userOrder = userOrder;
+  lvl.algoBuilt = (correctOrder === userOrderStr); 
+
+  if (!lvl.algoBuilt) {
+    alert('Порядок действий неверный. Вы можете продолжить, но балл за алгоритм начислен не будет.');
+  }
+
+  document.getElementById('modalOverlay').classList.remove('open');
+  
+  if (state.levelIdx + 1 < LEVELS.length) {
+    setTimeout(() => loadLevel(state.levelIdx + 1), 300);
+  } else {
+    setTimeout(showFinal, 300);
+  }
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function showFinal() {
+  stopTimer();
+  document.getElementById('gameScreen').classList.add('hidden');
+  document.getElementById('finalScreen').classList.remove('hidden');
+  
+  var stage1 = { 
+    totalMisses: state.totalMisses, 
+    duration: Math.round((Date.now() - state.startTime) / 1000),
+    levelResults: LEVELS.map(l => ({
+      id: l.id,
+      found: l.found || false,
+      algoBuilt: l.algoBuilt || false,
+      userOrder: l.userOrder || null
+    }))
+  };
+  
+  fetch('/api/tour4/stage1', { 
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+    body: JSON.stringify({ teamId, teamName, stage1 }) 
+  });
+}
+
+function goToStage2() {
+  document.getElementById('finalScreen').classList.add('hidden');
+  document.getElementById('stage2Screen').classList.remove('hidden');
+  renderSims();
+}
+
+var SIMULATIONS = [
+  { id:'tg', title:'Ситуация 1. Странное сообщение', startScene:'s1', scenes:{
+    s1:{ text:'Незнакомый аккаунт в Telegram: «Привет! Есть дело на 30 000 ₽/мес. Несложно. Никому не говори. Ответь до вечера».', choices:[
+      { text:'Ответить «Интересно, расскажи»', next:'s2_bad', score:0, feedback:'Вступать в диалог нельзя — ты даёшь сигнал, что готов слушать.' },
+      { text:'Ничего не отвечать, сделать скриншот', next:'s2_good', score:1, feedback:'Правильно: не вступать в диалог, сразу фиксировать.' },
+      { text:'Удалить сообщение и забыть', next:'s2_meh', score:0, feedback:'Удалять нельзя — теряются доказательства.' }
+    ]},
+    s2_good:{ text:'Скриншот сохранён. Что дальше?', choices:[
+      { text:'Заблокировать и рассказать старшим', next:'s3_good', score:1, feedback:'Отличный шаг — так и надо.' },
+      { text:'Переслать другу: «Смотри, что за дичь»', next:'end_meh', score:0, feedback:'Пересылать опасно. Лучше показать лично.' },
+      { text:'Подождать, может напишет ещё', next:'s3_meh', score:0, feedback:'Не жди продолжения.' }
+    ]},
+    s2_bad:{ text:'Незнакомец: «Отлично! Скинь фото паспорта и номер карты — оформим договор».', choices:[
+      { text:'Скинуть — вроде нормальные ребята', next:'end_very_bad', score:0, feedback:'Ты передал личные данные. Срочно расскажи родителям и в банк.' },
+      { text:'Прекратить общение, сохранить всё, рассказать старшим', next:'s3_good', score:1, feedback:'Правильно. Лучше поздно, чем никогда.' }
+    ]},
+    s2_meh:{ text:'Ты удалил. Через день — новое сообщение: «Ты почему молчишь? Я знаю твой адрес».', choices:[
+      { text:'Испугаться и выполнить требования', next:'end_very_bad', score:0, feedback:'Нельзя поддаваться давлению.' },
+      { text:'Сохранить сообщения, заблокировать, рассказать взрослым или в полицию', next:'s3_good', score:1, feedback:'Правильно.' }
+    ]},
+    s3_good:{ text:'Ты сохранил доказательства и рассказал куратору. Куратор: «Готов сообщить в полицию?»', choices:[
+      { text:'Да, это правильно', next:'end_good', score:1, feedback:'Молодец!' },
+      { text:'Нет, мне кажется, это лишнее', next:'end_meh', score:0, feedback:'Лучше сообщить — это защитит и тебя, и других.' }
+    ]},
+    s3_meh:{ text:'Ты подождал. Пришло ещё сообщение с угрозами.', choices:[
+      { text:'Прекратить, сохранить, рассказать старшим или в полицию', next:'end_good', score:1, feedback:'Правильно, но лучше было сразу.' },
+      { text:'Вступить в диалог, чтобы «разобраться»', next:'end_very_bad', score:0, feedback:'Опасно. Не вступай в переписку с агрессором.' }
+    ]},
+    end_good:{ text:'Отличный результат. Ты действовал правильно, ситуация закрыта.', choices:[], final:true, score:1 },
+    end_meh:{ text:'Ты в безопасности, но действовал не идеально. Впредь — рассказывай старшим сразу.', choices:[], final:true, score:0 },
+    end_bad:{ text:'Ситуация зашла далеко. Возможны последствия.', choices:[], final:true, score:0 },
+    end_very_bad:{ text:'Очень плохо. Ты передал данные или втянут. Немедленно расскажи родителям или в полицию.', choices:[], final:true, score:0 }
+  }},
+  { id:'bag', title:'Ситуация 2. Бесхозная сумка', startScene:'b1', scenes:{
+    b1:{ text:'В холле корпуса одинокая сумка у стены, рядом никого.', choices:[
+      { text:'Открыть и посмотреть', next:'end_bad', score:0, feedback:'Нельзя открывать бесхозные предметы.' },
+      { text:'Отойти, предупредить, сообщить охране', next:'b2_good', score:1, feedback:'Правильно — стандартный алгоритм.' },
+      { text:'Снять на видео и выложить', next:'b2_meh', score:0, feedback:'Лишнее. Главное — безопасность.' }
+    ]},
+    b2_good:{ text:'Охрана просит остаться до приезда полиции.', choices:[
+      { text:'Остаться и ответить на вопросы', next:'b3_good', score:1, feedback:'Правильно. Ты свидетель — информация важна.' },
+      { text:'Уйти на пару — я же не виноват', next:'end_meh', score:0, feedback:'Не стоит уходить без разрешения.' },
+      { text:'Позвонить родителям: пусть знают', next:'b3_good', score:1, feedback:'Хорошо — родители должны знать, где ты.' }
+    ]},
+    b2_meh:{ text:'Ты снял видео. Охранник увидел и просит удалить — может создать панику.', choices:[
+      { text:'Удалить и извиниться', next:'end_meh', score:0, feedback:'Правильно, но лучше было не снимать.' },
+      { text:'Оставить «на память»', next:'end_bad', score:0, feedback:'Нельзя. Это может помешать.' }
+    ]},
+    b3_good:{ text:'Полиция спрашивает, что ты видел. Как отвечать?', choices:[
+      { text:'Спокойно рассказать всё, что помню', next:'end_good', score:1, feedback:'Отлично. Это помогает следствию.' },
+      { text:'Придумать, чтобы не впутываться', next:'end_very_bad', score:0, feedback:'Ложь всё испортит.' }
+    ]},
+    end_good:{ text:'Ты действовал по алгоритму. Ситуация разрешилась без происшествий.', choices:[], final:true, score:1 },
+    end_meh:{ text:'Справился, но были ошибки.', choices:[], final:true, score:0 },
+    end_bad:{ text:'Ситуация закончилась плохо.', choices:[], final:true, score:0 },
+    end_very_bad:{ text:'Ты соврал или навредил. Это может обернуться против тебя.', choices:[], final:true, score:0 }
+  }},
+  { id:'friend', title:'Ситуация 3. Друг втягивается', startScene:'f1', scenes:{
+    f1:{ text:'Друг: «Нашёл подработку — 5000 ₽ надо просто отвезти коробку. Просили никому не говорить».', choices:[
+      { text:'Поздравить друга', next:'end_bad', score:0, feedback:'Это опасная схема. Нельзя относиться к ней как к обычной работе.' },
+      { text:'Спросить, что внутри и почему нельзя говорить', next:'f2_good', score:1, feedback:'Правильно. Эти два вопроса — красные флаги.' },
+      { text:'Промолчать, чтобы не портить отношения', next:'f2_meh', score:0, feedback:'Молчание = соучастие.' }
+    ]},
+    f2_good:{ text:'Друг: «Да не знаю, какая разница. Просто коробка». Что дальше?', choices:[
+      { text:'Скажу, что это опасно, и попрошу отказаться', next:'f3_good', score:1, feedback:'Правильно.' },
+      { text:'Соглашусь, что ничего страшного', next:'end_bad', score:0, feedback:'Нет. Это схема вовлечения.' },
+      { text:'Позвоню его родителям', next:'f3_warn', score:0, feedback:'Без согласия друга — риск потерять доверие. Лучше сначала поговорить с ним.' }
+    ]},
+    f2_meh:{ text:'Через неделю друг говорит: «Кажется, я вляпался. Мне угрожают».', choices:[
+      { text:'Сказать ему идти в полицию и рассказать родителям', next:'end_good', score:1, feedback:'Правильно — хотя лучше было раньше.' },
+      { text:'Посоветовать «не высовываться»', next:'end_very_bad', score:0, feedback:'Нет. Это опасно для друга.' }
+    ]},
+    f3_good:{ text:'Друг согласился отказаться. Что дальше?', choices:[
+      { text:'Вместе рассказать куратору или родителям', next:'end_good', score:1, feedback:'Отлично — взрослые помогут разобраться.' },
+      { text:'Оставить как есть — он же согласился', next:'end_meh', score:0, feedback:'Лучше закрепить результат.' }
+    ]},
+    f3_warn:{ text:'Друг обиделся, что ты звонишь родителям без спроса. Что делать?', choices:[
+      { text:'Извиниться и предложить вместе поговорить со взрослыми', next:'end_meh', score:0, feedback:'Правильно — важно сохранить доверие.' },
+      { text:'Настоять на своём — так надёжнее', next:'end_meh', score:0, feedback:'Правильно по сути, но друг может закрыться.' }
+    ]},
+    end_good:{ text:'Ты помог другу избежать беды. Отличный результат.', choices:[], final:true, score:1 },
+    end_meh:{ text:'В целом верно, но можно было решительнее.', choices:[], final:true, score:0 },
+    end_bad:{ text:'Ситуация закончилась плохо для друга.', choices:[], final:true, score:0 },
+    end_very_bad:{ text:'Друг в опасности. Нужна помощь взрослых немедленно.', choices:[], final:true, score:0 }
+  }}
+];
+
+var simState = {};
+
+function renderSims() {
+  var box = document.getElementById('sims');
+  box.innerHTML = '';
+  SIMULATIONS.forEach(function(sim) {
+    if (!simState[sim.id]) simState[sim.id] = { currentScene: sim.startScene, score: 0, history: [] };
+    var c = document.createElement('div');
+    c.className = 'sim-container';
+    c.id = 'sim_' + sim.id;
+    box.appendChild(c);
+    renderSimScene(sim);
+  });
+}
+
+function renderSimScene(sim) {
+  var st = simState[sim.id];
+  var scene = sim.scenes[st.currentScene];
+  var el = document.getElementById('sim_' + sim.id);
+  if (!el) return;
+  var header = '<div class="sim-header"><h3>' + sim.title + '</h3><span class="sim-progress">Правильных: ' + st.score + '</span></div>';
+  var body = '';
+  if (scene.final) {
+    var ok = scene.score === 1;
+    body += '<div class="sim-result"><h4>' + (ok ? '✓ Хорошо' : '⚠ Разбор') + '</h4><p>' + scene.text + '</p><p><b>Правильных решений: ' + st.score + '</b></p></div>';
+  } else {
+    body += '<div class="sim-text">' + scene.text + '</div>';
+    scene.choices.forEach(function(c, i) {
+      body += '<button class="sim-choice" id="choice_' + sim.id + '_' + i + '" onclick="simChoose(\'' + sim.id + '\',' + i + ')">' + c.text + '</button>';
+    });
+    body += '<div id="sim_fb_' + sim.id + '"></div>';
+  }
+  el.innerHTML = header + body;
+}
+
+function simChoose(simId, idx) {
+  var sim = SIMULATIONS.find(function(s) { return s.id === simId; });
+  var st = simState[simId];
+  var scene = sim.scenes[st.currentScene];
+  var choice = scene.choices[idx];
+  st.history.push({ choice: choice.text, score: choice.score });
+  st.score += choice.score;
+  scene.choices.forEach(function(c, i) {
+    var btn = document.getElementById('choice_' + simId + '_' + i);
+    if (btn) { btn.disabled = true; if (i === idx) btn.classList.add(choice.score === 1 ? 'correct' : 'wrong'); }
+  });
+  var fb = document.getElementById('sim_fb_' + simId);
+  fb.innerHTML = '<div class="sim-feedback ' + (choice.score === 1 ? 'ok' : 'err') + '">' + (choice.score === 1 ? '✓ ' : '✗ ') + choice.feedback + '</div>' +
+    '<p style="margin-top:12px;"><button class="btn btn-primary" onclick="simNext(\'' + simId + '\',\'' + choice.next + '\')">Далее →</button></p>';
+}
+
+function simNext(simId, nextScene) {
+  simState[simId].currentScene = nextScene;
+  var sim = SIMULATIONS.find(function(s) { return s.id === simId; });
+  renderSimScene(sim);
+}
+
+function submitStage2() {
+  var stage2 = {};
+  var totalScore = 0;
+  SIMULATIONS.forEach(function(sim) {
+    var st = simState[sim.id];
+    var scene = sim.scenes[st.currentScene];
+    stage2[sim.id] = { score: st.score, finished: scene && scene.final, history: st.history };
+    totalScore += st.score;
+  });
+
+  fetch('/api/tour4/stage2', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId: teamId, teamName: teamName, stage2: stage2, stage2Score: totalScore })
+  });
+
+  document.getElementById('ticketBox').innerHTML =
+    '<div class="ticket" style="margin-top:20px;">' +
+      '<h3>Тур 4 завершён</h3>' +
+      '<p><b>Команда:</b> ' + teamName + '</p>' +
+      '<p><b>Этап 2 (симулятор):</b> ' + totalScore + ' правильных решений</p>' +
+      '<p style="margin-top:16px;"><a class="btn btn-primary" href="menu.html?team=' + teamId + '&token=' + token + '">← Вернуться в меню туров</a></p>' +
+    '</div>';
+
+  document.getElementById('submitStage2Btn').disabled = true;
+  document.getElementById('submitStage2Btn').textContent = 'Отправлено';
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+</script>
+<script src="timer-widget.js"></script>
+<script src="video-widget.js"></script>
+</body>
+</html>

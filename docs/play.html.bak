@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Тур 1. Правовой щит</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .sticky-submit{position:sticky;bottom:0;background:rgba(245,247,250,0.95);backdrop-filter:blur(6px);padding:12px 0;margin-top:24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:5}
+    .sticky-submit .progress-text{font-size:14px;color:var(--muted)}
+    .ticket{background:#fff;border:2px solid var(--primary);border-radius:var(--radius);padding:20px;margin:20px 0}
+    .ticket h3{margin:0 0 10px;color:var(--primary-dark)}
+    .ticket .big{font-size:32px;font-weight:800;color:var(--primary-dark)}
+    .case-text{background:#f7f9fc;border-left:4px solid var(--primary);padding:14px 18px;margin:12px 0;border-radius:6px}
+    textarea{width:100%;min-height:160px;padding:12px;font-family:inherit;font-size:16px;border:1px solid var(--border);border-radius:var(--radius);resize:vertical;box-sizing:border-box}
+    .stage-title{margin-top:40px;padding-top:24px;border-top:2px solid var(--border)}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Координационный центр · ЯрГУ им. П.Г. Демидова</div>
+    <h1>Тур 1. Правовой щит</h1>
+  </div>
+</header>
+
+<main class="container">
+  <p id="who" style="color: var(--muted); font-size: 14px;"></p>
+
+  <h2 id="stage1Title">Этап 1. Квиз (30 вопросов)</h2>
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+  <div id="questions"></div>
+  <div class="sticky-submit">
+    <span class="progress-text" id="progressText">Отвечено: 0 / 30</span>
+    <button class="btn btn-primary" id="submitBtn" onclick="submitQuiz()">Отправить квиз</button>
+  </div>
+
+  <div id="ticketBox"></div>
+
+  <h2 class="stage-title" id="caseTitle" style="display:none;">Этап 2. Ситуационный кейс</h2>
+  <div id="caseBox" style="display:none;"></div>
+  <div id="caseResultBox"></div>
+</main>
+
+<footer class="site-footer">Координационный центр · ЯрГУ им. П.Г. Демидова</footer>
+
+<script>
+var CASES = {
+  1: {
+    title: 'Переписка в мессенджере',
+    situation: 'Тебе в Telegram пишет незнакомый человек: «Привет! Увидел твой пост про историю. Ты умный, мне нужны такие люди. Есть одно дело, оплата 30 000 в месяц, работа несложная — переписываться и передавать информацию. Никому не говори, это конфиденциально. Ответь до вечера, места ограничены».',
+    questions: ['Что в этой ситуации подозрительного?','Какие признаки того, что тебя пытаются вовлечь?','Что ты сделаешь в первую очередь?']
+  },
+  2: {
+    title: 'Пост в соцсети',
+    situation: 'Ты в группе ВК увидел пост: «X-нация во всём виновата. Пока мы молчим, они захватывают наши рабочие места. Пора действовать! Вступай в наше сообщество, ссылка в закрепе». Много лайков, но комментарии закрыты.',
+    questions: ['Что в этом посте не так?','Как нужно поступить с таким постом?','Какие будут последствия, если его переслать друзьям?']
+  },
+  3: {
+    title: 'Подозрительный предмет в вузе',
+    situation: 'Ты в коридоре корпуса заметил сумку без хозяина. Она стоит у входа в аудиторию, где через 10 минут начнётся лекция. Вокруг студенты, никто не обращает внимания. Ты не знаешь, кто её оставил.',
+    questions: ['Как ты поступишь?','Кому сообщишь в первую очередь?','Что делать НЕ нужно?']
+  },
+  4: {
+    title: 'Лёгкий заработок',
+    situation: 'В общем студенческом чате кто-то скинул сообщение: «Подработка 5000 ₽ за 1 час. Работа: сфотографировать здание по адресу и отправить. Ничего сложного, оплата сразу. Пиши в личку @anon1234. Возможно, понравится и будет ещё работа».',
+    questions: ['Что странного в этом предложении?','Почему это может быть опасно?','Что ты сделаешь?']
+  }
+};
+
+var params = new URLSearchParams(location.search);
+var teamId = params.get('team');
+var token  = params.get('token');
+var teamName = 'Команда #' + teamId;
+var teamCaseId = 1;
+
+function loadTeam(callback) {
+  if (!token) { if (callback) callback(); return; }
+  fetch('/api/teams/by-token?token=' + encodeURIComponent(token))
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(t) {
+      if (t) {
+        teamName = t.name;
+        teamCaseId = t.caseId || 1;
+      }
+      document.getElementById('who').textContent = teamName;
+      if (callback) callback();
+    })
+    .catch(function() { if (callback) callback(); });
+}
+
+var questions = [
+  { id:1,  text:'Что нужно сделать, если в интернете увидел призыв к насилию?', options:['Написать в комментариях, что это плохо','Сообщить в специальную службу или в полицию','Переслать друзьям, чтобы обсудить','Ничего, это не моё дело'], correct:1 },
+  { id:2,  text:'Кому грозит ответственность за призывы к насилию в интернете?', options:['Никому, интернет — свободная зона','Только владельцу сайта','Автору сообщения','Провайдеру'], correct:2 },
+  { id:3,  text:'Что из этого — признак опасного сообщения?', options:['Ссылка на проверенный источник','Призыв причинить вред людям другой национальности','Просьба подписаться на канал','Опрос мнений'], correct:1 },
+  { id:4,  text:'Если тебе в личку пишет незнакомец и просит «никому не говорить» — что это обычно значит?', options:['Так делают все','Ничего особенного','Это признак того, что тебя втягивают в опасную историю','Это просто вежливость'], correct:2 },
+  { id:5,  text:'Что делать с сообщением, где предлагают «лёгкие деньги за несложную работу»?', options:['Согласиться, деньги не лишние','Уточнить в личке','Не отвечать и рассказать старшим или в полицию','Переслать друзьям, пусть тоже попробуют'], correct:2 },
+  { id:6,  text:'Куда НЕ нужно сообщать о подозрительном посте?', options:['В полицию','В администрацию сайта','В публичный чат для обсуждения','На горячую линию'], correct:2 },
+  { id:7,  text:'Что такое «язык вражды»?', options:['Литературный спор','Речь, которая разжигает ненависть к людям по группе (нации, вере)','Научная дискуссия','Шутка'], correct:1 },
+  { id:8,  text:'Кто чаще всего попадает в ловушки вербовщиков?', options:['Только пожилые люди','Только богатые','Люди в сложной ситуации: одиночество, обида, финансовые проблемы','Только школьники'], correct:2 },
+  { id:9,  text:'Что делать, если тебе угрожают в соцсетях?', options:['Удалить свой аккаунт','Ответить агрессией','Сохранить скриншоты и рассказать взрослым/в полицию','Игнорировать, само пройдёт'], correct:2 },
+  { id:10, text:'Что такое «цифровой след»?', options:['След на снегу','Вся информация о тебе, которая осталась в интернете','Трекер на сайте','Ссылка'], correct:1 },
+  { id:11, text:'Какой пароль надёжнее?', options:['123456','qwerty','Дата рождения','Длинный пароль из букв, цифр и символов'], correct:3 },
+  { id:12, text:'Если тебе пишет «служба безопасности банка» и просит код из СМС — что делать?', options:['Сообщить код','Никому не сообщать коды, положить трубку, перезвонить в банк по официальному номеру','Записать код и перезвонить','Переслать другу, пусть проверит'], correct:1 },
+  { id:13, text:'Что такое «радикализация»?', options:['Переход к крайним, непримиримым взглядам','Учёба в вузе','Спорт','Хобби'], correct:0 },
+  { id:14, text:'Что делать при обнаружении бесхозной сумки в людном месте?', options:['Открыть и посмотреть','Пнуть ногой','Не трогать, отойти, сообщить охране или в полицию','Снять на видео и выложить'], correct:2 },
+  { id:15, text:'Что из этого — признак фейковой новости?', options:['Указаны авторы и дата','Есть ссылки на первоисточники','Кричащий заголовок без фактов внутри','Есть контакты редакции'], correct:2 },
+  { id:16, text:'Что делать, если незнакомец предлагает «сфотографировать здание за деньги»?', options:['Согласиться','Уточнить адрес','Отказаться и рассказать старшим','Попросить больше денег'], correct:2 },
+  { id:17, text:'Какую личную информацию лучше не выкладывать в открытый доступ?', options:['Любимую музыку','Адрес, номер телефона, номера документов','Фото природы','Стихи'], correct:1 },
+  { id:18, text:'Что такое «социальная инженерия»?', options:['Наука о зданиях','Обман людей, чтобы получить доступ к их данным или деньгам','Программирование','Дизайн'], correct:1 },
+  { id:19, text:'Что должно насторожить в предложении работы в интернете?', options:['Официальный сайт компании','Договор и реквизиты','Требование оплатить «взнос за трудоустройство»','Резюме'], correct:2 },
+  { id:20, text:'Если тебе присылают «задание» и просят никому не рассказывать — что это обычно?', options:['Обычная работа','Признак вовлечения в опасную или незаконную деятельность','Шутка','Учебное задание'], correct:1 },
+  { id:21, text:'Что такое «информационная война»?', options:['Обычная игра','Попытки влиять на людей через информацию, чтобы изменить их мнение','Журналистика','Реклама'], correct:1 },
+  { id:22, text:'Что помогает не попасть в ловушку манипулятора?', options:['Действовать сразу','Проверять информацию и советоваться со старшими','Хранить всё в секрете','Доверять первому впечатлению'], correct:1 },
+  { id:23, text:'Кто может сообщить о признаках экстремизма или вербовки?', options:['Только полиция','Только учителя','Любой человек','Только юристы'], correct:2 },
+  { id:24, text:'Что важно в разговоре с молодёжью на опасные темы?', options:['Назидания и нравоучения','Спокойный диалог и доверие','Запреты без объяснений','Запугивание'], correct:1 },
+  { id:25, text:'Что такое критическое мышление?', options:['Умение проверять информацию и сомневаться','Критика всех вокруг','Скепсис без причины','Отказ думать'], correct:0 },
+  { id:26, text:'Что делать, если близкий друг начинает общаться с подозрительными людьми?', options:['Отвернуться','Спокойно поговорить и рассказать взрослым','Смеяться над ним','Рассказать всем в классе'], correct:1 },
+  { id:27, text:'Что из этого — правда о вербовке в интернете?', options:['Вербуют только глупых','Вербуют только ночью','Вербуют через обычные сообщения, и это может случиться с каждым','Вербуют только взрослых'], correct:2 },
+  { id:28, text:'Какая самая частая манипуляция?', options:['Логика и факты','Давление на эмоции и срочность','Научные данные','Ссылка на учебник'], correct:1 },
+  { id:29, text:'Что делать, если в чате группы кто-то разжигает вражду?', options:['Поддержать','Пошутить','Не поддерживать, сообщить старшим, сохранить скриншоты','Подождать, пока все успокоятся'], correct:2 },
+  { id:30, text:'Какая главная цель профилактики экстремизма?', options:['Наказать как можно больше людей','Предупредить и защитить','Запугать','Изолировать всех'], correct:1 }
+];
+
+function render() {
+  var box = document.getElementById('questions');
+  box.innerHTML = '';
+  questions.forEach(function(q, i) {
+    var div = document.createElement('div');
+    div.className = 'question';
+    div.innerHTML = '<b>' + (i + 1) + '. ' + q.text + '</b>';
+    q.options.forEach(function(opt, j) {
+      var label = document.createElement('label');
+      label.className = 'opt';
+      label.innerHTML = '<input type="radio" name="q' + q.id + '" value="' + j + '" onchange="updateProgress()"> ' + opt;
+      div.appendChild(label);
+    });
+    box.appendChild(div);
+  });
+}
+
+function updateProgress() {
+  var answered = 0;
+  questions.forEach(function(q) {
+    if (document.querySelector('input[name="q' + q.id + '"]:checked')) answered++;
+  });
+  var total = questions.length;
+  document.getElementById('progressBar').style.width = (answered / total * 100) + '%';
+  document.getElementById('progressText').textContent = 'Отвечено: ' + answered + ' / ' + total;
+}
+
+function submitQuiz() {
+  var unanswered = 0;
+  questions.forEach(function(q) {
+    if (!document.querySelector('input[name="q' + q.id + '"]:checked')) unanswered++;
+  });
+  if (unanswered > 0 && !confirm('Вы ответили не на все вопросы. Всё равно отправить?')) return;
+
+  var correct = 0;
+  var answers = {};
+  questions.forEach(function(q) {
+    var picked = document.querySelector('input[name="q' + q.id + '"]:checked');
+    var val = picked ? Number(picked.value) : -1;
+    answers[q.id] = val;
+    if (val === q.correct) correct++;
+  });
+
+  fetch('/api/tour1/quiz', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId: teamId, answers: answers, correct: correct, total: questions.length })
+  });
+
+  document.getElementById('ticketBox').innerHTML =
+    '<div class="ticket">' +
+      '<h3>Результат этапа 1</h3>' +
+      '<p><b>Команда:</b> ' + teamName + '</p>' +
+      '<p><b>Балл квиза:</b> <span class="big">' + correct + ' / ' + questions.length + '</span></p>' +
+      '<p style="color:#666;font-size:13px;">Теперь переходите к этапу 2 — ситуационному кейсу.</p>' +
+      '<div class="actions"><button class="btn btn-primary" onclick="openCase()">Перейти к этапу 2 →</button></div>' +
+    '</div>';
+
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').textContent = 'Квиз отправлен';
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function openCase() {
+  var c = CASES[teamCaseId] || CASES[1];
+  document.getElementById('caseTitle').style.display = '';
+  document.getElementById('caseBox').style.display = '';
+  var html = '<div class="card"><h3>Ваш кейс: ' + c.title + '</h3>' +
+    '<div class="case-text"><p>' + c.situation + '</p></div>';
+  c.questions.forEach(function(q, i) {
+    html += '<p><b>Вопрос ' + (i + 1) + '.</b> ' + q + '</p>';
+  });
+  html += '<label for="caseAnswer"><b>Ваш ответ:</b></label>' +
+    '<textarea id="caseAnswer" placeholder="Напишите развёрнутый ответ команды..."></textarea>' +
+    '<div class="actions">' +
+      '<button class="btn btn-primary" onclick="submitCase()">Отправить ответ на кейс</button>' +
+      '<a class="btn btn-secondary" href="menu.html?team=' + teamId + '&token=' + token + '">← В меню туров</a>' +
+    '</div></div>';
+  document.getElementById('caseBox').innerHTML = html;
+  setTimeout(function() {
+    var el = document.getElementById('caseTitle');
+    if (el) window.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
+  }, 100);
+}
+
+function submitCase() {
+  var ans = document.getElementById('caseAnswer').value.trim();
+  if (ans.length < 20 && !confirm('Ответ очень короткий. Всё равно отправить?')) return;
+
+  fetch('/api/tour1/case', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId: teamId, caseTitle: CASES[teamCaseId].title, answer: ans })
+  });
+
+  document.getElementById('caseResultBox').innerHTML =
+    '<div class="msg ok" style="margin-top:16px;">Ответ на кейс отправлен. Жюри оценит его и внесёт баллы.</div>' +
+    '<p style="margin-top:16px;"><a class="btn btn-primary" href="menu.html?team=' + teamId + '&token=' + token + '">← Вернуться в меню туров</a></p>';
+
+  var btn = document.querySelector('#caseBox button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Ответ отправлен'; }
+}
+
+loadTeam(function() {
+  render();
+  updateProgress();
+});
+</script>
+
+<script src="timer-widget.js"></script>
+</body>
+</html>
